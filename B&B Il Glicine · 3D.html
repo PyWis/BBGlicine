@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B&amp;B Il Glicine · 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#2b2620;--muted:#7a6f62;--card:rgba(255,252,246,.94);--line:rgba(60,45,30,.12);--accent:#7b5ea7;--ok:#3f9a5c;--bad:#c9483f;--warn:#e0962e;--blue:#4f86c6}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:"DM Sans",system-ui,sans-serif;color:var(--ink);background:#cfe6f2}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+  button{font:inherit}
+  .card{background:var(--card);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 30px rgba(40,30,20,.12)}
+
+  /* Pannello sinistro: viste */
+  #panel{position:fixed;top:16px;left:16px;width:240px;padding:14px}
+  .brand{display:flex;gap:10px;align-items:center}
+  .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#9b7fc9,#6c4f9a);color:#fff;display:grid;place-items:center;font-size:19px;flex:none}
+  h1{font-family:Fraunces,serif;font-size:18px;margin:0;line-height:1.1}
+  .brand p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+  #menuBtn{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 8px;cursor:pointer}
+  #panel.collapsed .body{display:none}
+  .sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 6px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .grid button{font-size:12.5px;padding:6px 8px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;text-align:left}
+  .grid button:hover{border-color:var(--accent)}
+  .grid button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .grid button.wide{grid-column:span 2}
+  .langSel{width:100%;font:inherit;font-size:13px;padding:5px 7px;border-radius:9px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .mHead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .mHead .langSel{width:auto;flex:none}
+  .tog{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;padding:4px 0;cursor:pointer;user-select:none}
+  .tog input{appearance:none;width:32px;height:19px;border-radius:20px;background:#d9d1c5;position:relative;cursor:pointer;transition:.2s;margin:0}
+  .tog input::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:.2s}
+  .tog input:checked{background:var(--accent)}
+  .tog input:checked::after{left:15px}
+
+  /* HUD */
+  #hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:14px;padding:8px 10px 8px 16px;white-space:nowrap}
+  #clock{font-family:Fraunces,serif;font-size:22px;line-height:1}
+  #dayLbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .vsep{width:1px;height:30px;background:var(--line)}
+  .speed{display:flex;gap:3px}
+  .speed button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:13px;min-width:34px}
+  .speed button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .stat{font-size:12px;color:var(--muted);line-height:1.15}
+  .stat b{display:block;font-size:15px;color:var(--ink)}
+  #stars{color:#e0a92e;letter-spacing:1px}
+  #gear{border:1px solid var(--line);background:#fff;border-radius:9px;width:34px;height:34px;cursor:pointer;font-size:16px}
+
+  /* Bancone (destra) */
+  #desk{position:fixed;top:16px;right:16px;bottom:16px;width:340px;padding:14px 14px 10px;overflow:auto}
+  #desk h3{font-family:Fraunces,serif;font-size:17px;margin:0}
+  #desk h4{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 6px}
+  .deskHead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .pill{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:20px;color:#fff}
+  .closedBox{margin-top:10px;padding:10px;border-radius:12px;background:#2f3346;color:#fff;font-size:13px;line-height:1.4}
+  .closedBox button{margin-top:8px;border:0;border-radius:8px;padding:6px 10px;background:#fff;color:#2f3346;cursor:pointer;font-weight:700}
+  .empty{font-size:13px;color:var(--muted);padding:10px;border:1px dashed var(--line);border-radius:12px;text-align:center;margin-top:10px}
+  .g{margin-top:10px;padding:10px 11px;border-radius:12px;background:#fff;border:1px solid var(--line)}
+  .g.in{border-left:4px solid var(--ok)}
+  .g.out{border-left:4px solid var(--blue)}
+  .g.walking{opacity:.6}
+  .gTop{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+  .gName{font-weight:700;font-size:14px}
+  .badge{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:10px;color:#fff;flex:none}
+  .gMeta{font-size:12.5px;color:var(--muted);margin:3px 0 6px}
+  .bar{height:5px;border-radius:5px;background:#eee6da;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;border-radius:5px;background:var(--ok);transition:width .3s linear}
+  .acts{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .acts button{border:1px solid var(--line);background:#faf7f1;border-radius:8px;padding:5px 8px;font-size:12.5px;cursor:pointer}
+  .acts button.room{background:#eaf5ec;border-color:#b9dcc2}
+  .acts button.room:disabled{background:#f2efe9;color:#b3aa9d;border-color:var(--line);cursor:not-allowed}
+  .acts button.primary{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:700}
+  .acts button.ghost{color:var(--bad)}
+  .acts button:not(:disabled):hover{filter:brightness(.95)}
+  .rr{display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;border-bottom:1px solid var(--line);cursor:pointer}
+  .rr:last-child{border-bottom:0}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .rr .nm{font-weight:600;min-width:74px;flex:none;white-space:nowrap}
+  .rr .st{flex:1;color:#4a4238;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rr .bar{width:54px;flex:none}
+  .rr .bar i{background:var(--warn)}
+  .maid{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .tl{font-size:12.5px;line-height:1.55}
+  .tl span{color:var(--muted);display:inline-block;width:44px}
+  #log{font-size:12px;line-height:1.5;color:#4a4238;max-height:180px;overflow:auto}
+  #log div span{color:var(--muted);margin-right:5px}
+  #log .bad{color:var(--bad)} #log .good{color:var(--ok)}
+
+  #info{position:fixed;left:16px;bottom:16px;width:290px;padding:14px 16px;transition:.25s}
+  #info.hidden{opacity:0;transform:translateY(10px);pointer-events:none}
+  #info h2{font-family:Fraunces,serif;font-size:17px;margin:0 0 6px;padding-right:20px}
+  #info .d{font-size:13px;line-height:1.45;margin:0 0 6px;color:#4a4238}
+  #info .s{font-size:13px;font-weight:700;margin:0 0 6px}
+  #info ul{margin:0;padding-left:18px;font-size:12.5px;line-height:1.55}
+  #infoClose{position:absolute;top:8px;right:10px;border:0;background:none;font-size:20px;color:var(--muted);cursor:pointer}
+  #tip{position:fixed;pointer-events:none;background:#2b2620;color:#fff;font-size:12.5px;padding:5px 9px;border-radius:7px;opacity:0;transition:opacity .12s;white-space:nowrap;z-index:20}
+  #toasts{position:fixed;top:78px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:15}
+  .toast{background:#2b2620;color:#fff;font-size:13px;padding:7px 12px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.2);animation:tin .25s ease}
+  @keyframes tin{from{opacity:0;transform:translateY(-6px)}}
+
+  /* Modale impostazioni */
+  #modal{position:fixed;inset:0;background:rgba(30,24,18,.45);display:grid;place-items:center;z-index:30;padding:16px}
+  #modal.hidden{display:none}
+  #modal .card{width:min(520px,100%);max-height:100%;overflow:auto;padding:22px 24px}
+  #modal h2{font-family:Fraunces,serif;margin:0 0 6px;font-size:22px}
+  #modal p{font-size:14px;line-height:1.5;color:#4a4238;margin:0 0 10px}
+  .setRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .setRow small{display:block;color:var(--muted);font-size:12px}
+  .setRow select,.setRow input{font:inherit;padding:4px 6px;border-radius:7px;border:1px solid var(--line);background:#fff}
+  .setRow input{width:70px}
+  .mBtns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  .mBtns button{border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:700}
+  #mGo{background:var(--accent);color:#fff}
+  #mReset{background:#eee6da;color:var(--ink)}
+  .rules{font-size:13px;line-height:1.5;margin:0 0 12px;padding-left:18px;color:#4a4238}
+
+  @media (max-width:1180px){
+    #panel{width:auto}
+    #panel.collapsed{padding:10px}
+    #hud{left:auto;right:372px;transform:none}
+  }
+  #camPad{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 10px;user-select:none;-webkit-user-select:none;touch-action:none}
+  .pad{display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(2,30px);gap:3px}
+  #camPad button{border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-size:15px;padding:0;height:30px;min-width:34px;touch-action:none}
+  #camPad button:active,#camPad button.hold{background:var(--ink);color:#fff}
+  .padCol{display:flex;flex-direction:column;gap:3px}
+  .mode{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);text-align:center}
+  .mode div{display:flex;gap:3px}
+  .mode button{font-size:12px!important;padding:0 8px!important}
+  .mode button.on{background:var(--accent)!important;color:#fff;border-color:var(--accent)!important}
+  .keys{font-size:11px;color:var(--muted);line-height:1.4;max-width:150px}
+  #chat{position:fixed;left:50%;transform:translateX(-50%);bottom:100px;width:min(500px,calc(100vw - 32px));height:min(64vh,580px);display:flex;flex-direction:column;padding:0;z-index:14;overflow:hidden}
+  #chat.hidden{display:none}
+  .chHead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
+  #chName{font-weight:700;font-size:15px} #chSub{font-size:12px;color:var(--muted)}
+  #chMin{border:1px solid var(--line);background:#fff;border-radius:8px;width:30px;height:28px;cursor:pointer}
+  #chMsgs{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+  .bub{max-width:84%;padding:8px 11px;border-radius:14px;font-size:14px;line-height:1.42;white-space:pre-wrap;word-wrap:break-word}
+  .bub.g{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+  .bub.r{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+  .bub.sys{align-self:center;background:#eee6da;font-size:12px;color:#4a4238;border-radius:10px}
+  .typing{font-size:12.5px;color:var(--muted);font-style:italic}
+  .chErr{font-size:12.5px;color:var(--bad);line-height:1.4}
+  .chErr button{margin-left:6px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;cursor:pointer}
+  .rate{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.55}
+  .rate .stars,.rate b{color:#2b2620} .rate .stars{color:#e0a92e;letter-spacing:1px}
+  .rate .rc{font-style:italic;color:#4a4238;margin-top:4px} .rate .rt{color:#5d4a8a;margin-top:4px}
+  #chActs{padding:6px 14px 0;margin:0}
+  #chForm{display:flex;gap:6px;padding:10px 14px 12px}
+  #chIn{flex:1;resize:none;font:inherit;font-size:14px;padding:8px 10px;border-radius:10px;border:1px solid var(--line)}
+  #chSend{border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;padding:0 14px;cursor:pointer}
+  #chSend:disabled,#chIn:disabled{opacity:.5;cursor:not-allowed}
+  .acts button.talk{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+  .g.ask{border-left:4px solid var(--accent)}
+  .gLang{font-size:12px;color:#4a4238;margin:-2px 0 6px}
+  .tabs{display:flex;gap:4px;margin:4px 0 6px;flex-wrap:wrap}
+  .tabs button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 11px;cursor:pointer;font-size:13px}
+  .tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .pane.hidden{display:none}
+  .setRow input.wide,.setRow select.wide{width:240px;max-width:60vw}
+  .setNote{font-size:12.5px;color:var(--muted);line-height:1.45;padding:8px 0}
+  #testRes{font-size:12.5px;margin-left:8px}
+  .setBtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 11px;cursor:pointer}
+  .lrow{display:grid;grid-template-columns:1fr 92px 120px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .lrow.h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .lrow input[type=number]{width:62px;font:inherit;padding:3px 5px;border-radius:7px;border:1px solid var(--line)}
+  .lrow label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  #modal .card{width:min(620px,100%)}
+  @media (max-width:860px){ #chat{left:0;right:0;top:0;bottom:0;width:auto;height:auto;transform:none;border-radius:0} .lrow{grid-template-columns:1fr 80px 90px} }
+  @media (max-width:1180px){ .keys{display:none} #camPad{left:16px;transform:none} #info{bottom:110px} }
+  @media (max-width:860px){
+    #camPad{left:10px;right:auto;bottom:calc(44vh + 82px);padding:6px}
+    #panel{top:10px;left:10px;right:10px}
+    #hud{top:auto;bottom:calc(44vh + 18px);left:10px;right:10px;transform:none;flex-wrap:wrap;justify-content:space-between;gap:8px}
+    #desk{top:auto;left:10px;right:10px;bottom:10px;width:auto;height:44vh}
+    #info{display:none}
+    #toasts{top:70px}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<aside id="panel" class="card">
+  <div class="brand"><div class="logo">✿</div><div><h1>B&amp;B Il Glicine</h1><p data-i="sub"></p></div><button id="menuBtn" data-i-aria="menu">☰</button></div>
+  <div class="body">
+    <div class="sec" data-i="lang"></div>
+    <select class="langSel" aria-label="Language"></select>
+    <div class="sec" data-i="goTo"></div>
+    <div id="views" class="grid"></div>
+    <div class="sec" data-i="view"></div>
+    <label class="tog"><span data-i="roof"></span><input type="checkbox" id="tRoof"></label>
+    <label class="tog"><span data-i="low"></span><input type="checkbox" id="tLow" checked></label>
+    <label class="tog"><span data-i="labels"></span><input type="checkbox" id="tLabels" checked></label>
+  </div>
+</aside>
+
+<div id="hud" class="card">
+  <div><div id="dayLbl"></div><div id="clock">07:00</div></div>
+  <div class="speed" id="speed">
+    <button data-s="0" data-i-title="pause">⏸</button>
+    <button data-s="1" class="on" data-i-title="sp1">1×</button>
+    <button data-s="5" data-i-title="sp5">5×</button>
+    <button data-s="20" data-i-title="sp20">20×</button>
+  </div>
+  <div class="vsep"></div>
+  <div class="stat"><span data-i="income"></span><b id="money">0 €</b></div>
+  <div class="stat"><span data-i="reviews"></span><b><span id="stars">★★★★☆</span> <span id="repN">4.0</span></b></div>
+  <div class="stat" data-i-title="heartsT"><span data-i="hearts"></span><b id="hearts">❤️ 0</b></div>
+  <button id="gear" data-i-title="settings">⚙</button>
+</div>
+
+<aside id="desk" class="card">
+  <div class="deskHead"><h3 data-i="desk"></h3><span id="openPill" class="pill"></span></div>
+  <div id="closed"></div>
+  <div id="queue"></div>
+  <h4 data-i="rooms"></h4>
+  <div id="roomsList"></div>
+  <div class="maid" id="maidLine"></div>
+  <h4 data-i="today"></h4>
+  <div id="today" class="tl"></div>
+  <h4 data-i="log"></h4>
+  <div id="log"></div>
+</aside>
+
+<div id="info" class="card hidden"><button id="infoClose" data-i-aria="close">×</button><h2></h2><p class="s"></p><p class="d"></p><ul></ul></div>
+<div id="camPad" class="card">
+  <div class="pad">
+    <button data-cam="rotL" data-i-title="c_rotL">⟲</button><button data-cam="fwd" data-i-title="c_fwd">▲</button><button data-cam="rotR" data-i-title="c_rotR">⟳</button>
+    <button data-cam="left" data-i-title="c_left">◀</button><button data-cam="back" data-i-title="c_back">▼</button><button data-cam="right" data-i-title="c_right">▶</button>
+  </div>
+  <div class="padCol">
+    <button data-cam="in" data-i-title="c_in">＋</button><button data-cam="out" data-i-title="c_out">－</button>
+  </div>
+  <div class="padCol">
+    <button data-cam="up" data-i-title="c_up">⤒</button><button data-cam="down" data-i-title="c_down">⤓</button>
+  </div>
+  <div class="mode"><span data-i="drag"></span>
+    <div><button id="mRot" class="on" data-i="dRot"></button><button id="mPan" data-i="dPan"></button></div>
+  </div>
+  <div class="keys" data-i="keys"></div>
+</div>
+<div id="chat" class="card hidden">
+  <div class="chHead"><div><div id="chName"></div><div id="chSub"></div></div><button id="chMin" data-i-title="minimize">–</button></div>
+  <div id="chMsgs"></div>
+  <div id="chActs" class="acts"></div>
+  <form id="chForm"><textarea id="chIn" rows="2"></textarea><button type="submit" id="chSend"></button></form>
+</div>
+<div id="tip"></div>
+<div id="toasts"></div>
+
+<div id="modal">
+  <div class="card">
+    <div class="mHead"><h2 data-i="welcome"></h2><select class="langSel" aria-label="Language"></select></div>
+    <p data-i="intro"></p>
+    <ul class="rules" data-i-html="rules"></ul>
+    <div class="tabs" id="tabs"><button data-tab="hours" class="on" data-i="tabHours"></button><button data-tab="llm" data-i="tabLLM"></button><button data-tab="langs" data-i="tabLangs"></button></div>
+    <div id="setForm"></div>
+    <div class="mBtns"><button id="mReset" data-i="reset"></button><button id="mGo"></button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+/* =========================================================
+   B&B Il Glicine — gioco del receptionist (Three.js)
+   Coordinate: x da -12 a 12 (24 m), z da -8 a 8 (16 m)
+   1 ora di gioco = 1 minuto reale (a velocità 1×)
+   ========================================================= */
+
+// ---------- Traduzioni (it, en, fr, es, de) ----------
+const LANGS = [['it','🇮🇹 Italiano','it-IT'],['en','🇬🇧 English','en-GB'],['fr','🇫🇷 Français','fr-FR'],['es','🇪🇸 Español','es-ES'],['de','🇩🇪 Deutsch','de-DE']];
+let LI = 0;   // indice della lingua corrente
+const L = {
+  sub:['Sei il receptionist','You are the receptionist','Vous êtes le réceptionniste','Eres el recepcionista','Du arbeitest an der Rezeption'],
+  lang:['Lingua','Language','Langue','Idioma','Sprache'],
+  goTo:['Vai a','Go to','Aller à','Ir a','Gehe zu'],
+  view:['Vista','View','Vue','Vista','Ansicht'],
+  roof:['Tetto','Roof','Toit','Tejado','Dach'],
+  low:['Pareti basse','Low walls','Murs bas','Paredes bajas','Niedrige Wände'],
+  labels:['Etichette','Labels','Étiquettes','Etiquetas','Beschriftungen'],
+  overview:['Panoramica','Overview','Vue d’ensemble','Vista general','Übersicht'],
+  day:[d=>`Giorno ${d}`, d=>`Day ${d}`, d=>`Jour ${d}`, d=>`Día ${d}`, d=>`Tag ${d}`],
+  dS:['g.','D','J','D','T'],
+  pause:['Pausa (barra spaziatrice)','Pause (space bar)','Pause (barre d’espace)','Pausa (barra espaciadora)','Pause (Leertaste)'],
+  sp1:['1 ora di gioco = 1 minuto','1 game hour = 1 minute','1 heure de jeu = 1 minute','1 hora de juego = 1 minuto','1 Spielstunde = 1 Minute'],
+  sp5:['5 volte più veloce','5× faster','5 fois plus vite','5 veces más rápido','5-mal schneller'],
+  sp20:['20 volte più veloce','20× faster','20 fois plus vite','20 veces más rápido','20-mal schneller'],
+  income:['Incasso','Revenue','Recettes','Ingresos','Einnahmen'],
+  reviews:['Recensioni','Reviews','Avis','Reseñas','Bewertungen'],
+  settings:['Impostazioni e lingua','Settings and language','Réglages et langue','Ajustes e idioma','Einstellungen und Sprache'],
+  desk:['Bancone reception','Reception desk','Comptoir d’accueil','Mostrador de recepción','Rezeptionstheke'],
+  rooms:['Camere','Rooms','Chambres','Habitaciones','Zimmer'],
+  today:['Oggi','Today','Aujourd’hui','Hoy','Heute'],
+  log:['Registro','Log','Journal','Registro','Protokoll'],
+  close:['Chiudi','Close','Fermer','Cerrar','Schließen'],
+  menu:['Mostra o nascondi il menu','Show or hide the menu','Afficher ou masquer le menu','Mostrar u ocultar el menú','Menü ein- oder ausblenden'],
+  c_rotL:['Ruota a sinistra (Q)','Rotate left (Q)','Tourner à gauche (Q)','Girar a la izquierda (Q)','Nach links drehen (Q)'],
+  c_rotR:['Ruota a destra (E)','Rotate right (E)','Tourner à droite (E)','Girar a la derecha (E)','Nach rechts drehen (E)'],
+  c_fwd:['Avanti (W / ↑)','Forward (W / ↑)','Avancer (W / ↑)','Adelante (W / ↑)','Vorwärts (W / ↑)'],
+  c_back:['Indietro (S / ↓)','Back (S / ↓)','Reculer (S / ↓)','Atrás (S / ↓)','Zurück (S / ↓)'],
+  c_left:['Sinistra (A / ←)','Left (A / ←)','Gauche (A / ←)','Izquierda (A / ←)','Links (A / ←)'],
+  c_right:['Destra (D / →)','Right (D / →)','Droite (D / →)','Derecha (D / →)','Rechts (D / →)'],
+  c_in:['Avvicina (+ / R)','Zoom in (+ / R)','Rapprocher (+ / R)','Acercar (+ / R)','Heranzoomen (+ / R)'],
+  c_out:['Allontana (− / F)','Zoom out (− / F)','Éloigner (− / F)','Alejar (− / F)','Herauszoomen (− / F)'],
+  c_up:['Inclina verso l’alto (Z)','Tilt up (Z)','Incliner vers le haut (Z)','Inclinar hacia arriba (Z)','Nach oben neigen (Z)'],
+  c_down:['Inclina verso il basso (X)','Tilt down (X)','Incliner vers le bas (X)','Inclinar hacia abajo (X)','Nach unten neigen (X)'],
+  drag:['Trascina per','Drag to','Glisser pour','Arrastra para','Ziehen zum'],
+  dRot:['ruotare','rotate','tourner','girar','Drehen'],
+  dPan:['spostare','move','déplacer','mover','Verschieben'],
+  keys:['Tastiera: W A S D o frecce per muoverti, Q / E per ruotare, + / − per lo zoom','Keyboard: W A S D or arrows to move, Q / E to rotate, + / − to zoom','Clavier : W A S D ou flèches pour bouger, Q / E pour tourner, + / − pour zoomer','Teclado: W A S D o flechas para moverte, Q / E para girar, + / − para el zoom','Tastatur: W A S D oder Pfeile zum Bewegen, Q / E zum Drehen, + / − zum Zoomen'],
+  welcome:['Benvenuto al B&B Il Glicine','Welcome to B&B Il Glicine','Bienvenue au B&B Il Glicine','Bienvenido al B&B Il Glicine','Willkommen im B&B Il Glicine'],
+  intro:['Sei il receptionist. Ogni giorno arrivano nuovi turisti, che restano da 1 a 7 notti.','You are the receptionist. New tourists arrive every day and stay from 1 to 7 nights.','Vous êtes le réceptionniste. Chaque jour arrivent de nouveaux touristes, qui restent de 1 à 7 nuits.','Eres el recepcionista. Cada día llegan nuevos turistas, que se quedan de 1 a 7 noches.','Du arbeitest an der Rezeption. Jeden Tag kommen neue Gäste, die 1 bis 7 Nächte bleiben.'],
+  rules:[
+    '<li><b>Check-in:</b> quando un ospite è al bancone, assegnagli una camera libera e pulita.</li><li><b>Check-out:</b> il giorno della partenza l’ospite torna al bancone per pagare.</li><li>Dopo il check-out passa la <b>cameriera</b> a pulire: finché non ha finito la camera non si può assegnare.</li><li>Se un ospite aspetta troppo se ne va e le recensioni calano. Un’ora di gioco dura un minuto.</li>',
+    '<li><b>Check-in:</b> when a guest is at the desk, give them a free, clean room.</li><li><b>Check-out:</b> on departure day the guest comes back to the desk to pay.</li><li>After check-out the <b>housekeeper</b> cleans the room: until she has finished, the room can’t be assigned.</li><li>If a guest waits too long they leave and your reviews drop. One game hour lasts one minute.</li>',
+    '<li><b>Check-in :</b> quand un client est au comptoir, attribuez-lui une chambre libre et propre.</li><li><b>Check-out :</b> le jour du départ, le client revient au comptoir pour payer.</li><li>Après le check-out, la <b>femme de chambre</b> fait le ménage : tant qu’elle n’a pas fini, la chambre ne peut pas être attribuée.</li><li>Si un client attend trop longtemps, il part et vos avis baissent. Une heure de jeu dure une minute.</li>',
+    '<li><b>Check-in:</b> cuando un huésped está en el mostrador, asígnale una habitación libre y limpia.</li><li><b>Check-out:</b> el día de la salida el huésped vuelve al mostrador para pagar.</li><li>Tras el check-out pasa la <b>camarera de pisos</b> a limpiar: hasta que termine, la habitación no se puede asignar.</li><li>Si un huésped espera demasiado se va y tus reseñas bajan. Una hora de juego dura un minuto.</li>',
+    '<li><b>Check-in:</b> Steht ein Gast an der Theke, gib ihm ein freies, sauberes Zimmer.</li><li><b>Check-out:</b> Am Abreisetag kommt der Gast zum Bezahlen an die Theke.</li><li>Nach dem Check-out putzt das <b>Zimmermädchen</b> das Zimmer: Bis sie fertig ist, kann es nicht vergeben werden.</li><li>Wartet ein Gast zu lange, geht er und deine Bewertungen sinken. Eine Spielstunde dauert eine Minute.</li>'],
+  s_un:['Non disponibile','Unavailable','Indisponible','No disponible','Nicht verfügbar'],
+  s_unS:['Il receptionist dorme o è fuori','The receptionist is asleep or away','Le réceptionniste dort ou est absent','El recepcionista duerme o está fuera','Die Rezeption schläft oder ist weg'],
+  s_ci:['Orario check-in','Check-in hours','Horaires de check-in','Horario de check-in','Check-in-Zeiten'],
+  s_ciS:['Quando arrivano i nuovi ospiti','When new guests arrive','Quand arrivent les nouveaux clients','Cuándo llegan los nuevos huéspedes','Wann neue Gäste ankommen'],
+  s_co:['Orario check-out','Check-out hours','Horaires de check-out','Horario de check-out','Check-out-Zeiten'],
+  s_coS:['Quando partono gli ospiti','When guests leave','Quand les clients partent','Cuándo se van los huéspedes','Wann Gäste abreisen'],
+  s_maid:['Turno cameriera','Housekeeper shift','Service de la femme de chambre','Turno de la camarera','Schicht des Zimmermädchens'],
+  s_cl:['Durata pulizia','Cleaning time','Durée du ménage','Duración de la limpieza','Reinigungsdauer'],
+  s_clS:['minuti di gioco per camera','game minutes per room','minutes de jeu par chambre','minutos de juego por habitación','Spielminuten pro Zimmer'],
+  s_pr:['Prezzo a notte','Price per night','Prix par nuit','Precio por noche','Preis pro Nacht'],
+  from:['dalle','from','de','de','von'],
+  to:['alle','to','à','a','bis'],
+  start:['Inizia il turno','Start your shift','Commencer le service','Empezar el turno','Schicht beginnen'],
+  save:['Salva e riprendi','Save and resume','Enregistrer et reprendre','Guardar y continuar','Speichern und weiter'],
+  reset:['Ricomincia da capo','Start over','Recommencer','Empezar de nuevo','Neu beginnen'],
+  onDuty:['In servizio','On duty','En service','De servicio','Im Dienst'],
+  offDuty:['Fuori servizio','Off duty','Hors service','Fuera de servicio','Außer Dienst'],
+  closedBox:[(a,b)=>`🌙 Sei fuori servizio dalle ${a} alle ${b}. Gli ospiti in attesa aspettano senza spazientirsi.`,(a,b)=>`🌙 You are off duty from ${a} to ${b}. Waiting guests won’t lose patience.`,(a,b)=>`🌙 Vous êtes hors service de ${a} à ${b}. Les clients en attente patientent sans s’énerver.`,(a,b)=>`🌙 Estás fuera de servicio de ${a} a ${b}. Los huéspedes que esperan no pierden la paciencia.`,(a,b)=>`🌙 Du bist von ${a} bis ${b} außer Dienst. Wartende Gäste werden nicht ungeduldig.`],
+  skipTo:[b=>`⏩ Vai alle ${b}`,b=>`⏩ Skip to ${b}`,b=>`⏩ Aller à ${b}`,b=>`⏩ Saltar a las ${b}`,b=>`⏩ Weiter bis ${b}`],
+  nobody:['Nessuno al bancone. ☕','Nobody at the desk. ☕','Personne au comptoir. ☕','No hay nadie en el mostrador. ☕','Niemand an der Theke. ☕'],
+  ci:['Check-in','Check-in','Check-in','Check-in','Check-in'],
+  co:['Check-out','Check-out','Check-out','Check-out','Check-out'],
+  people:[n=>n===2?'👥 2 persone':'👤 1 persona',n=>n===2?'👥 2 people':'👤 1 person',n=>n===2?'👥 2 personnes':'👤 1 personne',n=>n===2?'👥 2 personas':'👤 1 persona',n=>n===2?'👥 2 Personen':'👤 1 Person'],
+  nights:[n=>n===1?'1 notte':`${n} notti`,n=>n===1?'1 night':`${n} nights`,n=>n===1?'1 nuit':`${n} nuits`,n=>n===1?'1 noche':`${n} noches`,n=>n===1?'1 Nacht':`${n} Nächte`],
+  toPay:[x=>`da pagare ${x} €`,x=>`to pay ${x} €`,x=>`à payer ${x} €`,x=>`a pagar ${x} €`,x=>`zu zahlen ${x} €`],
+  walking:['🚶 sta venendo al bancone…','🚶 walking to the desk…','🚶 se dirige vers le comptoir…','🚶 viene hacia el mostrador…','🚶 kommt zur Theke…'],
+  occ:['occ.','occ.','occ.','ocup.','bel.'],
+  refuse:['Rifiuta','Refuse','Refuser','Rechazar','Ablehnen'],
+  coBtn:[x=>`Check-out · incassa ${x} €`,x=>`Check-out · collect ${x} €`,x=>`Check-out · encaisser ${x} €`,x=>`Check-out · cobrar ${x} €`,x=>`Check-out · ${x} € kassieren`],
+  st_free:['Libera e pulita','Free and clean','Libre et propre','Libre y limpia','Frei und sauber'],
+  st_occupied:['Occupata','Occupied','Occupée','Ocupada','Belegt'],
+  st_dirty:['Da pulire','To be cleaned','À nettoyer','Por limpiar','Zu reinigen'],
+  st_cleaning:['In pulizia','Being cleaned','Ménage en cours','Limpiando','Wird gereinigt'],
+  cleanPct:[p=>`In pulizia ${p}%`,p=>`Cleaning ${p}%`,p=>`Ménage ${p} %`,p=>`Limpieza ${p}%`,p=>`Reinigung ${p} %`],
+  leaves:[(n,d)=>`${n} · parte g.${d}`,(n,d)=>`${n} · leaves day ${d}`,(n,d)=>`${n} · part jour ${d}`,(n,d)=>`${n} · sale día ${d}`,(n,d)=>`${n} · reist Tag ${d} ab`],
+  dirtyComing:['Da pulire · cameriera in arrivo','To be cleaned · housekeeper on the way','À nettoyer · femme de chambre en route','Por limpiar · camarera en camino','Zu reinigen · Zimmermädchen kommt'],
+  maid:['Cameriera','Housekeeper','Femme de chambre','Camarera','Zimmermädchen'],
+  m_off:[(a,b)=>`fuori turno (lavora dalle ${a} alle ${b})`,(a,b)=>`off shift (works ${a}–${b})`,(a,b)=>`hors service (travaille de ${a} à ${b})`,(a,b)=>`fuera de turno (trabaja de ${a} a ${b})`,(a,b)=>`nicht im Dienst (arbeitet ${a}–${b})`],
+  m_idle:['in attesa nel ripostiglio','waiting in the storeroom','attend dans la réserve','esperando en el cuarto de servicio','wartet im Abstellraum'],
+  m_walking:[r=>`sta andando in ${r}`,r=>`heading to ${r}`,r=>`se rend à la ${r}`,r=>`va a la ${r}`,r=>`geht zu ${r}`],
+  m_cleaning:[r=>`sta pulendo ${r}`,r=>`cleaning ${r}`,r=>`nettoie la ${r}`,r=>`limpiando la ${r}`,r=>`putzt ${r}`],
+  m_returning:['torna al ripostiglio','returning to the storeroom','retourne à la réserve','vuelve al cuarto de servicio','geht zurück zum Abstellraum'],
+  arr:[(n,ni)=>`🧳 Arrivo: ${n} (${ni})`,(n,ni)=>`🧳 Arrival: ${n} (${ni})`,(n,ni)=>`🧳 Arrivée : ${n} (${ni})`,(n,ni)=>`🧳 Llegada: ${n} (${ni})`,(n,ni)=>`🧳 Ankunft: ${n} (${ni})`],
+  dep:[(n,r)=>`👋 Partenza: ${n} · ${r}`,(n,r)=>`👋 Departure: ${n} · ${r}`,(n,r)=>`👋 Départ : ${n} · ${r}`,(n,r)=>`👋 Salida: ${n} · ${r}`,(n,r)=>`👋 Abreise: ${n} · ${r}`],
+  noneToday:['Nessun altro arrivo o partenza previsti oggi.','No more arrivals or departures expected today.','Aucune autre arrivée ni aucun départ prévus aujourd’hui.','No hay más llegadas ni salidas previstas hoy.','Heute keine weiteren Ankünfte oder Abreisen.'],
+  open:['Aperta','Open','Ouverte','Abierta','Geöffnet'],
+  closed:['Chiusa','Closed','Fermée','Cerrada','Geschlossen'],
+  tagYou:['Tu','You','Vous','Tú','Du'],
+  tagClosed:['Chiuso','Closed','Fermé','Cerrado','Geschlossen'],
+  reception:['Reception','Reception','Accueil','Recepción','Rezeption'],
+  kitchen:['Cucina comune','Shared kitchen','Cuisine commune','Cocina común','Gemeinschaftsküche'],
+  kitchenS:['Cucina','Kitchen','Cuisine','Cocina','Küche'],
+  corridor:['Corridoio','Corridor','Couloir','Pasillo','Flur'],
+  room:[n=>`Camera ${n}`,n=>`Room ${n}`,n=>`Chambre ${n}`,n=>`Habitación ${n}`,n=>`Zimmer ${n}`],
+  fl_r1:['Glicine','Wisteria','Glycine','Glicinia','Glyzinie'],
+  fl_r2:['Lavanda','Lavender','Lavande','Lavanda','Lavendel'],
+  fl_r3:['Ulivo','Olive Tree','Olivier','Olivo','Olivenbaum'],
+  fl_r4:['Limone','Lemon','Citron','Limón','Zitrone'],
+  d_reception:['Il tuo ufficio: bancone check-in, PC, bacheca delle chiavi e divanetto d’attesa. Ingresso dal giardino sotto la pergola di glicine.','Your office: check-in counter, PC, key board and a waiting sofa. Entrance from the garden under the wisteria pergola.','Votre bureau : comptoir de check-in, PC, tableau des clés et canapé d’attente. Entrée par le jardin sous la pergola de glycine.','Tu oficina: mostrador de check-in, PC, tablero de llaves y sofá de espera. Entrada desde el jardín bajo la pérgola de glicinias.','Dein Büro: Check-in-Theke, PC, Schlüsselbrett und Wartesofa. Eingang vom Garten unter der Glyzinien-Pergola.'],
+  i_reception:[['Bancone check-in con campanello','Postazione PC','Bacheca delle chiavi','Divanetto d’attesa'],['Check-in counter with bell','PC workstation','Key board','Waiting sofa'],['Comptoir de check-in avec sonnette','Poste informatique','Tableau des clés','Canapé d’attente'],['Mostrador de check-in con timbre','Puesto con PC','Tablero de llaves','Sofá de espera'],['Check-in-Theke mit Klingel','PC-Arbeitsplatz','Schlüsselbrett','Wartesofa']],
+  d_kitchen:['Cucina condivisa per gli ospiti, con buffet della colazione e tavolo da sei.','Kitchen shared by the guests, with a breakfast buffet and a table for six.','Cuisine partagée par les clients, avec buffet du petit-déjeuner et table pour six.','Cocina compartida para los huéspedes, con bufé de desayuno y mesa para seis.','Gemeinsame Küche für die Gäste mit Frühstücksbuffet und Tisch für sechs.'],
+  i_kitchen:[['Piano cottura, lavello e frigorifero','Buffet colazione','Tavolo per 6 persone'],['Hob, sink and fridge','Breakfast buffet','Table for 6'],['Plaque de cuisson, évier et frigo','Buffet du petit-déjeuner','Table pour 6'],['Placa, fregadero y nevera','Bufé de desayuno','Mesa para 6'],['Kochfeld, Spüle und Kühlschrank','Frühstücksbuffet','Tisch für 6']],
+  d_r1:['Matrimoniale d’angolo con due finestre.','Corner double room with two windows.','Chambre double d’angle avec deux fenêtres.','Doble de esquina con dos ventanas.','Doppelzimmer an der Ecke mit zwei Fenstern.'],
+  d_r2:['Matrimoniale centrale, silenziosa.','Quiet central double room.','Chambre double centrale, calme.','Doble central, tranquila.','Ruhiges Doppelzimmer in der Mitte.'],
+  d_r3:['Matrimoniale d’angolo, luminosa.','Bright corner double room.','Chambre double d’angle, lumineuse.','Doble de esquina, luminosa.','Helles Doppelzimmer an der Ecke.'],
+  d_r4:['Matrimoniale sul lato giardino.','Double room on the garden side.','Chambre double côté jardin.','Doble del lado del jardín.','Doppelzimmer zur Gartenseite.'],
+  i_bed:[['Letto matrimoniale','Comodini e abat-jour','Armadio','Poltrona'],['Double bed','Bedside tables and lamps','Wardrobe','Armchair'],['Lit double','Tables de chevet et lampes','Armoire','Fauteuil'],['Cama de matrimonio','Mesitas y lámparas','Armario','Sillón'],['Doppelbett','Nachttische mit Lampen','Kleiderschrank','Sessel']],
+  d_corridor:['Collega reception, cucina e camere. La cameriera parte dal ripostiglio in fondo a est.','Connects reception, kitchen and rooms. The housekeeper starts from the storeroom at the east end.','Relie l’accueil, la cuisine et les chambres. La femme de chambre part de la réserve, au bout côté est.','Conecta recepción, cocina y habitaciones. La camarera sale del cuarto de servicio, al fondo hacia el este.','Verbindet Rezeption, Küche und Zimmer. Das Zimmermädchen startet im Abstellraum am Ostende.'],
+  i_corridor:[['Passatoia','Finestre alle estremità'],['Runner rug','Windows at both ends'],['Tapis de couloir','Fenêtres aux extrémités'],['Alfombra de pasillo','Ventanas en los extremos'],['Läufer','Fenster an beiden Enden']],
+  couple:[s=>`Coppia ${s}`,s=>`The ${s} couple`,s=>`Couple ${s}`,s=>`Pareja ${s}`,s=>`Ehepaar ${s}`],
+  pair:[(a,b)=>`${a} e ${b}`,(a,b)=>`${a} & ${b}`,(a,b)=>`${a} et ${b}`,(a,b)=>`${a} y ${b}`,(a,b)=>`${a} und ${b}`],
+  L_start:['Inizio del turno: due camere sono già occupate.','Shift starts: two rooms are already occupied.','Début du service : deux chambres sont déjà occupées.','Empieza el turno: dos habitaciones ya están ocupadas.','Schichtbeginn: Zwei Zimmer sind bereits belegt.'],
+  L_day:[(d,n,p)=>`Giorno ${d}: ${n} ${n===1?'prenotazione':'prenotazioni'} in arrivo, ${p} ${p===1?'partenza':'partenze'}.`,(d,n,p)=>`Day ${d}: ${n} booking${n===1?'':'s'} arriving, ${p} departure${p===1?'':'s'}.`,(d,n,p)=>`Jour ${d} : ${n} réservation${n>1?'s':''} à venir, ${p} départ${p>1?'s':''}.`,(d,n,p)=>`Día ${d}: ${n} reserva${n===1?'':'s'} por llegar, ${p} salida${p===1?'':'s'}.`,(d,n,p)=>`Tag ${d}: ${n} ${n===1?'Buchung':'Buchungen'} erwartet, ${p} ${p===1?'Abreise':'Abreisen'}.`],
+  L_atDesk:[(n,k)=>`${n} è al bancone (${k}).`,(n,k)=>`${n} is at the desk (${k}).`,(n,k)=>`${n} est au comptoir (${k}).`,(n,k)=>`${n} está en el mostrador (${k}).`,(n,k)=>`${n} steht an der Theke (${k}).`],
+  T_atDesk:[(n,k)=>`🛎️ ${n} è al bancone per il ${k}`,(n,k)=>`🛎️ ${n} is at the desk for ${k}`,(n,k)=>`🛎️ ${n} est au comptoir pour le ${k}`,(n,k)=>`🛎️ ${n} está en el mostrador para el ${k}`,(n,k)=>`🛎️ ${n} steht an der Theke zum ${k}`],
+  L_in:[(n,r,ni,d)=>`✔ Check-in: ${n} in ${r}, ${ni} (partenza giorno ${d}).`,(n,r,ni,d)=>`✔ Check-in: ${n} in ${r}, ${ni} (leaves day ${d}).`,(n,r,ni,d)=>`✔ Check-in : ${n} en ${r}, ${ni} (départ jour ${d}).`,(n,r,ni,d)=>`✔ Check-in: ${n} en ${r}, ${ni} (sale el día ${d}).`,(n,r,ni,d)=>`✔ Check-in: ${n} in ${r}, ${ni} (Abreise Tag ${d}).`],
+  L_auto:[(n,b)=>`✖ ${n} ha lasciato la chiave sul bancone ed è andato via: ha aspettato troppo per il check-out (+${b} €).`,(n,b)=>`✖ ${n} left the key on the desk and went away: they waited too long to check out (+${b} €).`,(n,b)=>`✖ ${n} a laissé la clé sur le comptoir et est parti : trop d’attente pour le check-out (+${b} €).`,(n,b)=>`✖ ${n} dejó la llave en el mostrador y se fue: esperó demasiado para el check-out (+${b} €).`,(n,b)=>`✖ ${n} hat den Schlüssel auf die Theke gelegt und ist gegangen: zu lange auf den Check-out gewartet (+${b} €).`],
+  L_out:[(n,b,r)=>`✔ Check-out: ${n} ha pagato ${b} € (${r} da pulire).`,(n,b,r)=>`✔ Check-out: ${n} paid ${b} € (${r} needs cleaning).`,(n,b,r)=>`✔ Check-out : ${n} a payé ${b} € (${r} à nettoyer).`,(n,b,r)=>`✔ Check-out: ${n} pagó ${b} € (${r} por limpiar).`,(n,b,r)=>`✔ Check-out: ${n} hat ${b} € bezahlt (${r} muss gereinigt werden).`],
+  L_refused:[n=>`✖ Hai rifiutato ${n}.`,n=>`✖ You turned away ${n}.`,n=>`✖ Vous avez refusé ${n}.`,n=>`✖ Has rechazado a ${n}.`,n=>`✖ Du hast ${n} abgewiesen.`],
+  L_arriving:[(n,pp)=>`${n} sta arrivando (${pp}).`,(n,pp)=>`${n} is arriving (${pp}).`,(n,pp)=>`${n} arrive (${pp}).`,(n,pp)=>`${n} está llegando (${pp}).`,(n,pp)=>`${n} kommt an (${pp}).`],
+  L_leavesRoom:[(n,r)=>`${n} lascia ${r} e va al bancone.`,(n,r)=>`${n} leaves ${r} and heads to the desk.`,(n,r)=>`${n} quitte la ${r} et va au comptoir.`,(n,r)=>`${n} deja la ${r} y va al mostrador.`,(n,r)=>`${n} verlässt ${r} und geht zur Theke.`],
+  L_angry:[n=>`✖ ${n} ha aspettato troppo ed è andato via arrabbiato.`,n=>`✖ ${n} waited too long and left angry.`,n=>`✖ ${n} a trop attendu et est parti fâché.`,n=>`✖ ${n} esperó demasiado y se fue enfadado.`,n=>`✖ ${n} hat zu lange gewartet und ist verärgert gegangen.`],
+  T_angry:[n=>`😠 ${n} se n’è andato!`,n=>`😠 ${n} left!`,n=>`😠 ${n} est parti !`,n=>`😠 ¡${n} se ha ido!`,n=>`😠 ${n} ist gegangen!`],
+  L_maidOn:['La cameriera ha iniziato il turno.','The housekeeper has started her shift.','La femme de chambre a commencé son service.','La camarera ha empezado su turno.','Das Zimmermädchen hat ihre Schicht begonnen.'],
+  L_maidOff:['La cameriera ha finito il turno.','The housekeeper has finished her shift.','La femme de chambre a terminé son service.','La camarera ha terminado su turno.','Das Zimmermädchen hat Feierabend.'],
+  L_clean:[r=>`🧹 ${r} è pulita e pronta.`,r=>`🧹 ${r} is clean and ready.`,r=>`🧹 La ${r} est propre et prête.`,r=>`🧹 La ${r} está limpia y lista.`,r=>`🧹 ${r} ist sauber und bereit.`],
+  T_clean:[r=>`🧹 ${r} è pulita`,r=>`🧹 ${r} is clean`,r=>`🧹 La ${r} est propre`,r=>`🧹 La ${r} está limpia`,r=>`🧹 ${r} ist sauber`],
+  L_skip:['⏩ Hai saltato il periodo di chiusura.','⏩ You skipped the closed period.','⏩ Vous avez sauté la période de fermeture.','⏩ Has saltado el periodo de cierre.','⏩ Du hast die Schließzeit übersprungen.'],
+  L_hours:['Orari aggiornati.','Schedule updated.','Horaires mis à jour.','Horarios actualizados.','Zeiten aktualisiert.'],
+  L_shiftEnd:['🌙 Fine del tuo turno: reception chiusa.','🌙 End of your shift: reception closed.','🌙 Fin de votre service : accueil fermé.','🌙 Fin de tu turno: recepción cerrada.','🌙 Schichtende: Rezeption geschlossen.'],
+  L_shiftStart:['☀️ Inizio del tuo turno: reception aperta.','☀️ Your shift begins: reception open.','☀️ Début de votre service : accueil ouvert.','☀️ Empieza tu turno: recepción abierta.','☀️ Schichtbeginn: Rezeption geöffnet.']
+};
+function t(k, ...a) { const e = L[k]; if (!e) return k; const v = e[LI] ?? e[0]; return typeof v === 'function' ? v(...a) : v; }
+const RS = k => /^r\d$/.test(k) ? t('room', k[1]) : k === 'reception' ? t('reception') : k === 'kitchen' ? t('kitchenS') : t('corridor');
+const RN = k => /^r\d$/.test(k) ? `${t('room', k[1])} · ${t('fl_' + k)}` : k === 'kitchen' ? t('kitchen') : RS(k);
+const RD = k => t('d_' + k);
+const RI = k => t(/^r\d$/.test(k) ? 'i_bed' : 'i_' + k);
+const NIGHTS = n => t('nights', n);
+function nameStr(o) { if (!o) return ''; return o.type === 'couple' ? t('couple', o.s) : o.type === 'pair' ? t('pair', o.a, o.b) : o.full; }
+// i parametri del registro vengono tradotti al momento della visualizzazione
+function resolveArg(a) {
+  if (!a || typeof a !== 'object') return a;
+  if (a.room) return RS(a.room);
+  if (a.type) return nameStr(a);
+  if (a.nights != null) return NIGHTS(a.nights);
+  if (a.people != null) return t('people', a.people);
+  if (a.lk) return t(a.lk);
+  return a;
+}
+const tl = (k, args = []) => t(k, ...args.map(resolveArg));
+
+// ---------- Traduzioni: modalità LLM e lingue degli ospiti ----------
+Object.assign(L, {
+  tabHours:['Orari','Schedule','Horaires','Horarios','Zeiten'],
+  tabLLM:['Modalità LLM','LLM mode','Mode LLM','Modo LLM','LLM-Modus'],
+  tabLangs:['Lingue ospiti','Guest languages','Langues des clients','Idiomas de los huéspedes','Gästesprachen'],
+  llmOn:['Attiva la modalità LLM','Enable LLM mode','Activer le mode LLM','Activar el modo LLM','LLM-Modus aktivieren'],
+  llmOnS:['Gli ospiti parlano con te nella loro lingua tramite un modello di intelligenza artificiale','Guests talk to you in their own language through an AI model','Les clients vous parlent dans leur langue grâce à un modèle d’IA','Los huéspedes te hablan en su idioma mediante un modelo de IA','Gäste sprechen über ein KI-Modell in ihrer Sprache mit dir'],
+  provider:['Fornitore','Provider','Fournisseur','Proveedor','Anbieter'],
+  apiKey:['Chiave API','API key','Clé API','Clave API','API-Schlüssel'],
+  model:['Modello','Model','Modèle','Modelo','Modell'],
+  baseUrl:['Indirizzo API','API address','Adresse de l’API','Dirección de la API','API-Adresse'],
+  remember:['Ricorda la chiave su questo browser','Remember the key in this browser','Mémoriser la clé dans ce navigateur','Recordar la clave en este navegador','Schlüssel in diesem Browser merken'],
+  test:['Prova la connessione','Test connection','Tester la connexion','Probar la conexión','Verbindung testen'],
+  testOk:['✔ Connessione riuscita','✔ Connected','✔ Connexion réussie','✔ Conexión correcta','✔ Verbindung erfolgreich'],
+  testing:['Prova in corso…','Testing…','Test en cours…','Probando…','Wird getestet…'],
+  pauseChat:['Ferma il tempo mentre parli con un ospite','Pause time while talking to a guest','Mettre le temps en pause pendant une conversation','Pausar el tiempo mientras hablas con un huésped','Zeit anhalten, während du mit einem Gast sprichst'],
+  askPct:['Richieste nei giorni intermedi','Requests during the stay','Demandes pendant le séjour','Peticiones durante la estancia','Anfragen während des Aufenthalts'],
+  askPctS:['probabilità al giorno per ospite (25 situazioni tipiche)','chance per guest per day (25 typical situations)','probabilité par client et par jour (25 situations typiques)','probabilidad por huésped y día (25 situaciones típicas)','Wahrscheinlichkeit pro Gast und Tag (25 typische Situationen)'],
+  noteBuiltin:['Claude integrato funziona direttamente in questa pagina, senza chiave. Alla prima conversazione ti verrà chiesto il permesso.','Built-in Claude works right in this page, no key needed. You will be asked for permission at the first conversation.','Claude intégré fonctionne directement dans cette page, sans clé. L’autorisation vous sera demandée à la première conversation.','Claude integrado funciona en esta misma página, sin clave. En la primera conversación se te pedirá permiso.','Das integrierte Claude funktioniert direkt auf dieser Seite, ohne Schlüssel. Beim ersten Gespräch wirst du um Erlaubnis gebeten.'],
+  noteExternal:['Dentro la pagina pubblicata su claude.ai le API esterne sono bloccate: funzionano se apri il file HTML scaricato dal tuo computer. La chiave resta nel tuo browser e viene inviata solo al fornitore scelto.','Inside the page published on claude.ai external APIs are blocked: they work when you open the downloaded HTML file from your computer. The key stays in your browser and is sent only to the chosen provider.','Dans la page publiée sur claude.ai, les API externes sont bloquées : elles fonctionnent si vous ouvrez le fichier HTML téléchargé depuis votre ordinateur. La clé reste dans votre navigateur et n’est envoyée qu’au fournisseur choisi.','Dentro de la página publicada en claude.ai las API externas están bloqueadas: funcionan si abres el archivo HTML descargado desde tu ordenador. La clave se queda en tu navegador y solo se envía al proveedor elegido.','Auf der bei claude.ai veröffentlichten Seite sind externe APIs gesperrt: Sie funktionieren, wenn du die heruntergeladene HTML-Datei auf deinem Computer öffnest. Der Schlüssel bleibt in deinem Browser und geht nur an den gewählten Anbieter.'],
+  noteOllama:['Avvia Ollama con OLLAMA_ORIGINS=* per permettere le richieste dal browser.','Start Ollama with OLLAMA_ORIGINS=* to allow requests from the browser.','Lancez Ollama avec OLLAMA_ORIGINS=* pour autoriser les requêtes du navigateur.','Inicia Ollama con OLLAMA_ORIGINS=* para permitir las peticiones del navegador.','Starte Ollama mit OLLAMA_ORIGINS=*, damit der Browser Anfragen senden darf.'],
+  builtinName:['Claude (integrato, senza chiave)','Claude (built-in, no key)','Claude (intégré, sans clé)','Claude (integrado, sin clave)','Claude (integriert, ohne Schlüssel)'],
+  customName:['Compatibile OpenAI (personalizzato)','OpenAI-compatible (custom)','Compatible OpenAI (personnalisé)','Compatible con OpenAI (personalizado)','OpenAI-kompatibel (eigene)'],
+  ollamaName:['Ollama (sul tuo computer)','Ollama (on your computer)','Ollama (sur votre ordinateur)','Ollama (en tu ordenador)','Ollama (auf deinem Computer)'],
+  share:['Affluenza %','Share %','Affluence %','Afluencia %','Anteil %'],
+  avail:['Parlata in albergo','Spoken at the hotel','Parlée à l’hôtel','Hablada en el hotel','Im Hotel gesprochen'],
+  total:[x=>`Totale: ${x}%`,x=>`Total: ${x}%`,x=>`Total : ${x} %`,x=>`Total: ${x}%`,x=>`Summe: ${x} %`],
+  langsNote:['Le percentuali vengono riproporzionate automaticamente se il totale non è 100.','Percentages are rescaled automatically if the total isn’t 100.','Les pourcentages sont recalculés automatiquement si le total n’est pas 100.','Los porcentajes se reajustan automáticamente si el total no es 100.','Die Prozentwerte werden automatisch angepasst, wenn die Summe nicht 100 ist.'],
+  altTitle:['Se la lingua non è parlata in albergo, il cliente usa:','If the language isn’t spoken at the hotel, the guest uses:','Si la langue n’est pas parlée à l’hôtel, le client utilise :','Si el idioma no se habla en el hotel, el huésped usa:','Wird die Sprache im Hotel nicht gesprochen, nutzt der Gast:'],
+  enFluent:['Inglese','English','Anglais','Inglés','Englisch'],
+  enBasic:['Inglese base','Basic English','Anglais basique','Inglés básico','Einfaches Englisch'],
+  mandarin:['mandarino','Mandarin','mandarin','mandarín','Mandarin'],
+  talk:['💬 Parla','💬 Talk','💬 Parler','💬 Hablar','💬 Sprechen'],
+  ask:['Richiesta','Request','Demande','Petición','Anfrage'],
+  exchanges:[(n,m)=>`Scambi ${n}/${m}`,(n,m)=>`Exchanges ${n}/${m}`,(n,m)=>`Échanges ${n}/${m}`,(n,m)=>`Intercambios ${n}/${m}`,(n,m)=>`Wechsel ${n}/${m}`],
+  typeHere:['Scrivi la tua risposta… (Invio per inviare)','Type your reply… (Enter to send)','Écrivez votre réponse… (Entrée pour envoyer)','Escribe tu respuesta… (Intro para enviar)','Schreib deine Antwort… (Enter zum Senden)'],
+  send:['Invia','Send','Envoyer','Enviar','Senden'],
+  endConv:['Concludi la conversazione','End conversation','Terminer la conversation','Terminar la conversación','Gespräch beenden'],
+  minimize:['Riduci','Minimize','Réduire','Minimizar','Minimieren'],
+  typing:[n=>`${n} sta scrivendo…`,n=>`${n} is typing…`,n=>`${n} écrit…`,n=>`${n} está escribiendo…`,n=>`${n} schreibt…`],
+  evaluating:['L’ospite sta scrivendo la recensione…','The guest is writing a review…','Le client rédige son avis…','El huésped está escribiendo la reseña…','Der Gast schreibt eine Bewertung…'],
+  rKind:['Gentilezza','Kindness','Amabilité','Amabilidad','Freundlichkeit'],
+  rTotal:['Recensione','Review','Avis','Reseña','Bewertung'],
+  heartWon:['❤️ Recensione perfetta: hai vinto un cuore!','❤️ Perfect review: you won a heart!','❤️ Avis parfait : vous gagnez un cœur !','❤️ Reseña perfecta: ¡has ganado un corazón!','❤️ Perfekte Bewertung: Du hast ein Herz gewonnen!'],
+  tip:['Consiglio','Tip','Conseil','Consejo','Tipp'],
+  hearts:['Cuori','Hearts','Cœurs','Corazones','Herzen'],
+  heartsT:['Cuori: recensioni perfette (3/3 lingua + 3/3 gentilezza)','Hearts: perfect reviews (3/3 language + 3/3 kindness)','Cœurs : avis parfaits (3/3 langue + 3/3 amabilité)','Corazones: reseñas perfectas (3/3 idioma + 3/3 amabilidad)','Herzen: perfekte Bewertungen (3/3 Sprache + 3/3 Freundlichkeit)'],
+  retry:['Riprova','Retry','Réessayer','Reintentar','Erneut versuchen'],
+  noBuiltin:['Claude integrato non è disponibile in questa vista: apri il gioco su claude.ai oppure scegli un altro fornitore.','Built-in Claude isn’t available in this view: open the game on claude.ai or choose another provider.','Claude intégré n’est pas disponible dans cette vue : ouvrez le jeu sur claude.ai ou choisissez un autre fournisseur.','Claude integrado no está disponible en esta vista: abre el juego en claude.ai o elige otro proveedor.','Das integrierte Claude ist in dieser Ansicht nicht verfügbar: Öffne das Spiel auf claude.ai oder wähle einen anderen Anbieter.'],
+  noKey:['Inserisci la chiave API nelle impostazioni (⚙ → Modalità LLM).','Enter your API key in the settings (⚙ → LLM mode).','Saisissez la clé API dans les réglages (⚙ → Mode LLM).','Introduce la clave API en los ajustes (⚙ → Modo LLM).','Gib den API-Schlüssel in den Einstellungen ein (⚙ → LLM-Modus).'],
+  cspErr:['Questa pagina non può contattare API esterne. Usa Claude integrato oppure apri il file HTML scaricato.','This page can’t reach external APIs. Use built-in Claude or open the downloaded HTML file.','Cette page ne peut pas joindre d’API externes. Utilisez Claude intégré ou ouvrez le fichier HTML téléchargé.','Esta página no puede conectar con API externas. Usa Claude integrado o abre el archivo HTML descargado.','Diese Seite kann keine externen APIs erreichen. Nutze das integrierte Claude oder öffne die heruntergeladene HTML-Datei.'],
+  noteCheckin:[r=>`✔ Hai assegnato ${r}`,r=>`✔ You assigned ${r}`,r=>`✔ Vous avez attribué la ${r}`,r=>`✔ Has asignado la ${r}`,r=>`✔ Du hast ${r} vergeben`],
+  noteCheckout:[b=>`✔ Check-out completato: ${b} €`,b=>`✔ Check-out done: ${b} €`,b=>`✔ Check-out effectué : ${b} €`,b=>`✔ Check-out hecho: ${b} €`,b=>`✔ Check-out erledigt: ${b} €`],
+  noTalk:['Non hai parlato con l’ospite.','You didn’t talk to the guest.','Vous n’avez pas parlé au client.','No has hablado con el huésped.','Du hast nicht mit dem Gast gesprochen.'],
+  inChat:['💬 in conversazione','💬 talking','💬 en conversation','💬 conversando','💬 im Gespräch'],
+  L_review:[(n,s,l,k)=>`⭐ Recensione di ${n}: ${s}/5 (lingua ${l}/3, gentilezza ${k}/3).`,(n,s,l,k)=>`⭐ Review from ${n}: ${s}/5 (language ${l}/3, kindness ${k}/3).`,(n,s,l,k)=>`⭐ Avis de ${n} : ${s}/5 (langue ${l}/3, amabilité ${k}/3).`,(n,s,l,k)=>`⭐ Reseña de ${n}: ${s}/5 (idioma ${l}/3, amabilidad ${k}/3).`,(n,s,l,k)=>`⭐ Bewertung von ${n}: ${s}/5 (Sprache ${l}/3, Freundlichkeit ${k}/3).`],
+  L_heart:[n=>`❤️ ${n} ti ha regalato un cuore!`,n=>`❤️ ${n} gave you a heart!`,n=>`❤️ ${n} vous offre un cœur !`,n=>`❤️ ¡${n} te ha regalado un corazón!`,n=>`❤️ ${n} hat dir ein Herz geschenkt!`],
+  L_askDesk:[n=>`${n} viene al bancone con una richiesta.`,n=>`${n} comes to the desk with a request.`,n=>`${n} vient au comptoir avec une demande.`,n=>`${n} viene al mostrador con una petición.`,n=>`${n} kommt mit einem Anliegen zur Theke.`],
+  L_askGone:[n=>`✖ ${n} ha rinunciato alla sua richiesta ed è tornato in camera.`,n=>`✖ ${n} gave up on their request and went back to the room.`,n=>`✖ ${n} a renoncé à sa demande et est retourné dans sa chambre.`,n=>`✖ ${n} renunció a su petición y volvió a la habitación.`,n=>`✖ ${n} hat das Anliegen aufgegeben und ist aufs Zimmer gegangen.`],
+  T_ask:[n=>`❓ ${n} ha una richiesta`,n=>`❓ ${n} has a request`,n=>`❓ ${n} a une demande`,n=>`❓ ${n} tiene una petición`,n=>`❓ ${n} hat ein Anliegen`]
+});
+
+// ---------- Utilità ----------
+const rnd = (a, b) => a + Math.random() * (b - a);
+const rint = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const DAYM = 1440;
+const mod = m => ((m % DAYM) + DAYM) % DAYM;
+const hh = h => String(h).padStart(2, '0') + ':00';
+const fmtT = t => { const m = Math.floor(mod(t)); return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0'); };
+const dayOf = t => Math.floor(t / DAYM) + 1;
+
+// ---------- Dati delle stanze ----------
+const ROOMS = {
+  reception:{ b:[-12,1,-5,8], color:'#c49a6c' },
+  kitchen:{ b:[-5,1,4,8], color:'#d9cbb3' },
+  r1:{ b:[-12,-8,-4,-1], accent:0x8e6bb8, color:'#8e6bb8' },
+  r2:{ b:[-4,-8,4,-1], accent:0x6f7fc0, color:'#6f7fc0' },
+  r3:{ b:[4,-8,12,-1], accent:0x7c9a57, color:'#7c9a57' },
+  r4:{ b:[4,1,12,8], accent:0xe2b93b, color:'#e2b93b' },
+  corridor:{ b:[-12,-1,12,1], color:'#a33b3b' }
+};
+const RK = ['r1','r2','r3','r4'];
+// Punti di passaggio per ogni camera
+const RM = {};
+[['r1',-8],['r2',0],['r3',8]].forEach(([k,c]) => RM[k] = { corr:[c,0], door:[c,-1], inside:[c,-2], spot:[c+1.5,-4.3], maid:[c-1.5,-4.4], cart:[c-2.15,-3.5], face:Math.PI });
+RM.r4 = { corr:[8,0], door:[8,1], inside:[8,2.1], spot:[9.4,4.2], maid:[6.6,4.4], cart:[5.95,3.6], face:0 };
+const SLOTS = [[-9.25,4.3],[-8.45,5.25],[-7.65,6.05],[-6.95,6.8],[-7.3,3.1],[-6.6,2.4],[-7.6,7.3]];
+const ENTR_IN = [-8.5,7.0], ENTR_OUT = [-8.5,9.3], SPAWN = [-8.5,19];
+const DESK_HALL = [[-8.5,2.3],[-8.5,0]];
+const MAID_BASE = [11.2,0];
+
+// ---------- Scena, camera, renderer ----------
+const scene = new THREE.Scene();
+const DAY_BG = new THREE.Color(0xcfe6f2), NIGHT_BG = new THREE.Color(0x0d1527);
+scene.background = DAY_BG.clone();
+scene.fog = new THREE.Fog(0xcfe6f2, 60, 140);
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 300);
+camera.position.set(15, 30, 21);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('app').appendChild(renderer.domElement);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(3.5, 0, 1);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI / 2.12; controls.minDistance = 4; controls.maxDistance = 70;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x6f6250, 0.5); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1d6, 0.9);
+sun.position.set(18, 28, 14); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-26, right:26, top:26, bottom:-26, near:1, far:90 });
+sun.shadow.bias = -0.0006; scene.add(sun);
+
+// ---------- Helper geometrici ----------
+const matCache = {};
+function M(c, opts = {}) {
+  if (c && c.isMaterial) return c;
+  const k = c + JSON.stringify(opts);
+  if (!matCache[k]) matCache[k] = new THREE.MeshStandardMaterial(Object.assign({ color:c, roughness:0.75, metalness:0 }, opts));
+  return matCache[k];
+}
+function box(parent, w, h, d, mat, x, y, z, ry = 0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(mat));
+  m.position.set(x, y + h/2, z); m.rotation.y = ry;
+  m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+function cyl(parent, rt, rb, h, mat, x, y, z, seg = 20) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), M(mat));
+  m.position.set(x, y + h/2, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+function sph(parent, r, mat, x, y, z, seg = 16) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(8, seg*0.75|0)), M(mat));
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+}
+function G(x, z, ry = 0, parent = furn) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; parent.add(g); return g;
+}
+const V = p => new THREE.Vector3(p[0], 0, p[1]);
+
+// ---------- Texture procedurali ----------
+function planks(base, w, d) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'); const col = new THREE.Color(base);
+  for (let i = 0; i < 8; i++) {
+    const k = 0.86 + Math.random()*0.22;
+    g.fillStyle = `rgb(${Math.min(255,col.r*255*k)|0},${Math.min(255,col.g*255*k)|0},${Math.min(255,col.b*255*k)|0})`;
+    g.fillRect(0, i*32, 256, 32);
+    g.strokeStyle = 'rgba(60,30,10,0.07)';
+    for (let j = 0; j < 6; j++) { const y = i*32 + 4 + Math.random()*24; g.beginPath(); g.moveTo(0,y); g.bezierCurveTo(80,y+3,170,y-3,256,y+1); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, i*32, 256, 1.5);
+    g.fillRect(((i%2)*128 + Math.random()*50) % 256, i*32, 1.5, 32);
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(w/3, d/3); t.anisotropy = 8; return t;
+}
+function tiles(a, b, w, d) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#b8ad9c'; g.fillRect(0,0,128,128);
+  [[0,0,a],[64,0,b],[0,64,b],[64,64,a]].forEach(([x,y,col]) => { g.fillStyle = col; g.fillRect(x+1.5,y+1.5,61,61); });
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(w/1.2, d/1.2); t.anisotropy = 8; return t;
+}
+function artTex(c1, c2, c3) {
+  const c = document.createElement('canvas'); c.width = 160; c.height = 120; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0,0,0,120); gr.addColorStop(0,c1); gr.addColorStop(1,'#fff8ea');
+  g.fillStyle = gr; g.fillRect(0,0,160,120);
+  g.fillStyle = c2; g.beginPath(); g.arc(112,38,17,0,7); g.fill();
+  g.fillStyle = c3; g.beginPath(); g.moveTo(0,120); g.quadraticCurveTo(50,48,95,92); g.quadraticCurveTo(130,68,160,88); g.lineTo(160,120); g.fill();
+  return new THREE.CanvasTexture(c);
+}
+
+// ---------- Terreno, pavimenti ----------
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), M(0x7aa35c, { roughness:1 }));
+ground.rotation.x = -Math.PI/2; ground.position.y = -0.3; ground.receiveShadow = true; scene.add(ground);
+box(scene, 24.8, 0.3, 16.8, 0xbdb3a3, 0, -0.3, 0);
+const pickables = [];
+function floor(key, tex) {
+  const [x1,z1,x2,z2] = ROOMS[key].b, w = x2-x1, d = z2-z1;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), new THREE.MeshStandardMaterial({ map:tex, roughness:0.8, emissive:0x000000 }));
+  m.position.set((x1+x2)/2, 0.02, (z1+z2)/2); m.receiveShadow = true;
+  m.userData.room = key; scene.add(m); pickables.push(m); ROOMS[key].floor = m;
+}
+floor('reception', planks(0xb88a5a, 7, 7));
+floor('kitchen', tiles('#efe6d6', '#c9b79c', 9, 7));
+RK.forEach(k => floor(k, planks(0xc9a27a, 8, 7)));
+floor('corridor', planks(0x9c7048, 24, 2));
+
+// ---------- Muri ----------
+const T = 0.2, H = 3;
+const wallsG = new THREE.Group(); scene.add(wallsG);
+const upperParts = [];
+const intWall = M(0xf4efe6, { roughness:0.95 }), extWall = M(0xecdcc2, { roughness:0.95 });
+const frameMat = M(0xffffff, { roughness:0.5 });
+const glassMat = new THREE.MeshStandardMaterial({ color:0xa9d8f0, transparent:true, opacity:0.35, roughness:0.05, metalness:0.2, emissive:0x000000 });
+function seg(axis, fixed, s, e, y0, y1, mat, upper) {
+  const len = e - s; if (len < 0.01) return; const mid = (s + e) / 2;
+  const m = axis === 'x' ? box(wallsG, len, y1-y0, T, mat, mid, y0, fixed) : box(wallsG, T, y1-y0, len, mat, fixed, y0, mid);
+  if (upper) upperParts.push(m);
+}
+function wall(axis, fixed, a, b, ops = [], mat = intWall) {
+  ops = [...ops].sort((p, q) => p.c - q.c); let cur = a;
+  for (const o of ops) {
+    const s = o.c - o.w/2, e = o.c + o.w/2;
+    seg(axis, fixed, cur, s, 0, H, mat);
+    if (o.t === 'door') seg(axis, fixed, s, e, 2.15, H, mat, true);
+    else {
+      seg(axis, fixed, s, e, 0, 0.95, mat); seg(axis, fixed, s, e, 2.2, H, mat, true);
+      const gh = 1.25;
+      const gl = new THREE.Mesh(axis === 'x' ? new THREE.BoxGeometry(o.w, gh, 0.04) : new THREE.BoxGeometry(0.04, gh, o.w), glassMat);
+      gl.position.set(axis === 'x' ? o.c : fixed, 0.95 + gh/2, axis === 'x' ? fixed : o.c); wallsG.add(gl); upperParts.push(gl);
+      upperParts.push(axis === 'x' ? box(wallsG, 0.05, gh, 0.08, frameMat, o.c, 0.95, fixed) : box(wallsG, 0.08, gh, 0.05, frameMat, fixed, 0.95, o.c));
+      upperParts.push(axis === 'x' ? box(wallsG, o.w+0.1, 0.05, T+0.14, frameMat, o.c, 0.93, fixed) : box(wallsG, T+0.14, 0.05, o.w+0.1, frameMat, fixed, 0.93, o.c));
+    }
+    cur = e;
+  }
+  seg(axis, fixed, cur, b, 0, H, mat);
+}
+wall('x', -8, -12.1, 12.1, [{c:-5.6,w:1.2},{c:2.4,w:1.2},{c:10.4,w:1.2}], extWall);
+wall('x',  8, -12.1, 12.1, [{c:-8.5,w:1.4,t:'door'},{c:-6.3,w:1.0},{c:-2,w:1.4},{c:2,w:1.4}], extWall);
+wall('z', -12, -7.9, 7.9, [{c:-4.5,w:1.2},{c:0,w:1.0}], extWall);
+wall('z',  12, -7.9, 7.9, [{c:-4.5,w:1.2},{c:0,w:1.0},{c:4.5,w:1.2}], extWall);
+wall('x', -1, -11.9, 11.9, [{c:-8,w:0.95,t:'door'},{c:0,w:0.95,t:'door'},{c:8,w:0.95,t:'door'}]);
+wall('x',  1, -11.9, 11.9, [{c:-8.5,w:1.6,t:'door'},{c:-0.5,w:3,t:'door'},{c:8,w:0.95,t:'door'}]);
+wall('z', -4, -7.9, -1.1); wall('z', 4, -7.9, -1.1); wall('z', -5, 1.1, 7.9); wall('z', 4, 1.1, 7.9);
+function doorPanel(hx, hz, w, ang, color) {
+  const g = new THREE.Group(); g.position.set(hx, 0, hz);
+  box(g, w, 2.1, 0.05, color, w/2, 0, 0);
+  sph(g, 0.035, M(0xd4b26a, { metalness:0.7, roughness:0.3 }), w - 0.1, 1.0, 0.05, 10);
+  g.rotation.y = ang; wallsG.add(g); upperParts.push(g);
+}
+const doorWood = M(0x9a6a3f, { roughness:0.6 });
+[-8, 0, 8].forEach(c => doorPanel(c - 0.47, -1, 0.94, 1.2, doorWood));
+doorPanel(7.53, 1, 0.94, -1.2, doorWood);
+doorPanel(-9.2, 8, 1.4, 1.25, M(0x3f6b4f, { roughness:0.55 }));
+
+// ---------- Arredi ----------
+const furn = new THREE.Group(); furn.position.y = 0.04; scene.add(furn);
+const decor = new THREE.Group(); scene.add(decor);
+const WOOD = 0x8b5e3c, WOODL = 0xc49a6c, WHITE = 0xf7f5f0;
+const lampMat = new THREE.MeshStandardMaterial({ color:0xfff0cf, emissive:0xffc46b, emissiveIntensity:0.05, roughness:0.6 });
+
+function nightstand(g, x, z) {
+  box(g, 0.45, 0.5, 0.4, WOODL, x, 0, z);
+  box(g, 0.36, 0.02, 0.01, 0x6b4a2e, x, 0.32, z + 0.2);
+  cyl(g, 0.06, 0.08, 0.05, 0x5b5148, x, 0.5, z);
+  cyl(g, 0.012, 0.012, 0.28, 0x5b5148, x, 0.55, z);
+  cyl(g, 0.09, 0.15, 0.2, lampMat, x, 0.8, z);
+}
+// Letto con versione ORDINATA e DISORDINATA + valigia degli ospiti
+const roomVis = {};
+function bedRoom(k, x, z, ry) {
+  const accent = ROOMS[k].accent, dark = new THREE.Color(accent).multiplyScalar(0.72).getHex();
+  const g = G(x, z, ry);
+  box(g, 1.7, 0.35, 2.1, WOOD, 0, 0, 0);
+  box(g, 1.6, 0.22, 2.0, WHITE, 0, 0.35, 0.02);
+  box(g, 1.86, 1.15, 0.1, WOOD, 0, 0, -1.08);
+  nightstand(g, -1.2, -0.82); nightstand(g, 1.2, -0.82);
+  // — ordinata
+  const tidy = new THREE.Group(); g.add(tidy);
+  box(tidy, 1.66, 0.07, 1.35, accent, 0, 0.55, 0.36);
+  box(tidy, 1.66, 0.03, 0.28, dark, 0, 0.6, -0.18);
+  box(tidy, 0.62, 0.14, 0.38, 0xffffff, -0.4, 0.57, -0.72);
+  box(tidy, 0.62, 0.14, 0.38, 0xffffff,  0.4, 0.57, -0.72);
+  box(tidy, 0.36, 0.06, 0.26, 0xffffff, 0.45, 0.62, 0.75);          // asciugamani piegati
+  box(tidy, 0.36, 0.05, 0.26, accent, 0.45, 0.68, 0.75);
+  // — disordinata
+  const messy = new THREE.Group(); g.add(messy);
+  const bl = box(messy, 1.5, 0.07, 1.2, accent, 0.25, 0.56, 0.5); bl.rotation.set(0, 0.38, -0.05);
+  const hang = box(messy, 0.05, 0.45, 1.0, accent, 0.98, 0.16, 0.7); hang.rotation.z = 0.22;
+  for (let i = 0; i < 3; i++) { const s = sph(messy, 0.2, 0xf1f1f1, -0.45 + i*0.3, 0.6, 0.0 + (i%2)*0.3, 10); s.scale.set(1.4, 0.35, 1.1); }
+  const p1 = box(messy, 0.62, 0.14, 0.38, 0xffffff, -0.25, 0.57, -0.6); p1.rotation.set(0, 0.6, 0.25);
+  const p2 = box(messy, 0.62, 0.14, 0.38, 0xffffff, -1.4, 0.0, 0.55); p2.rotation.y = -0.8;
+  const tw = box(messy, 0.7, 0.02, 0.45, 0xffffff, -0.9, 0.015, 1.65); tw.rotation.y = 0.45;
+  const cl = box(messy, 0.5, 0.02, 0.38, 0xd9534f, 0.85, 0.015, 1.55); cl.rotation.y = -0.7;
+  const jn = box(messy, 0.42, 0.02, 0.7, 0x3b5b8c, 0.1, 0.015, 1.95); jn.rotation.y = 1.1;
+  cyl(messy, 0.035, 0.035, 0.22, 0x3f8f5a, 1.12, 0.5, -0.74, 10);
+  const bt = cyl(messy, 0.035, 0.035, 0.22, 0x3f8f5a, 1.5, 0.035, 0.1, 10); bt.rotation.z = Math.PI/2;
+  cyl(messy, 0.045, 0.035, 0.09, WHITE, -1.1, 0.5, -0.7, 10);
+  [[-1.6,1.2],[1.4,1.0],[0.6,2.3],[-0.4,2.4]].forEach(([a,b]) => sph(messy, 0.055, 0xffffff, a, 0.055, b, 8));
+  // — valigia (camera occupata)
+  const suit = new THREE.Group(); g.add(suit);
+  const sc = pick([0x2f6f8f, 0xb8413a, 0x3d3d3d, 0x6b8e4e]);
+  box(suit, 0.46, 0.66, 0.26, sc, -1.45, 0, 0.55); box(suit, 0.22, 0.04, 0.04, 0x222222, -1.45, 0.66, 0.55);
+  const coat = box(suit, 0.5, 0.05, 0.4, 0xc7a27a, 1.3, 0.62, 0.55); coat.rotation.y = 0.3;
+  // — carrello della cameriera
+  const cart = G(RM[k].cart[0], RM[k].cart[1], 0);
+  box(cart, 0.5, 0.06, 0.9, 0x6d7a86, 0, 0.12, 0); box(cart, 0.5, 0.06, 0.9, 0x6d7a86, 0, 0.62, 0);
+  [[-0.22,-0.42],[0.22,-0.42],[-0.22,0.42],[0.22,0.42]].forEach(([a,b]) => box(cart, 0.03, 0.9, 0.03, 0x4a525a, a, 0, b));
+  box(cart, 0.4, 0.14, 0.35, 0xffffff, 0, 0.68, -0.2); box(cart, 0.4, 0.12, 0.35, 0x9cc7e6, 0, 0.82, -0.2);
+  cyl(cart, 0.16, 0.13, 0.25, 0xe0962e, 0, 0.18, 0.2, 14);
+  box(cart, 0.45, 0.25, 0.35, 0x3a3a3a, 0, 0.68, 0.25);
+  roomVis[k] = { tidy, messy, suit, cart };
+}
+function wardrobe(x, z, ry) {
+  const g = G(x, z, ry);
+  box(g, 1.8, 2.1, 0.6, WOODL, 0, 0, 0); box(g, 0.02, 2.0, 0.01, 0x6b4a2e, 0, 0.05, 0.3);
+  box(g, 0.03, 0.25, 0.03, 0xd4b26a, -0.08, 0.95, 0.31); box(g, 0.03, 0.25, 0.03, 0xd4b26a, 0.08, 0.95, 0.31);
+}
+function armchair(x, z, ry, color) {
+  const g = G(x, z, ry);
+  box(g, 0.75, 0.42, 0.75, color, 0, 0, 0); box(g, 0.75, 0.5, 0.16, color, 0, 0.42, -0.3);
+  box(g, 0.12, 0.22, 0.75, color, -0.32, 0.42, 0); box(g, 0.12, 0.22, 0.75, color, 0.32, 0.42, 0);
+  cyl(g, 0.22, 0.22, 0.03, WOODL, 0.75, 0.5, 0.1); cyl(g, 0.03, 0.03, 0.5, WOODL, 0.75, 0, 0.1);
+}
+function chair(x, z, ry, color = WOODL) {
+  const g = G(x, z, ry);
+  box(g, 0.45, 0.05, 0.45, color, 0, 0.44, 0);
+  [[-0.19,-0.19],[0.19,-0.19],[-0.19,0.19],[0.19,0.19]].forEach(([a,b]) => box(g, 0.04, 0.44, 0.04, color, a, 0, b));
+  box(g, 0.45, 0.45, 0.04, color, 0, 0.49, -0.2);
+}
+function rug(x, z, w, d, color) { box(furn, w, 0.012, d, M(color, { roughness:1 }), x, 0, z); }
+function plant(x, z, s = 1) {
+  cyl(furn, 0.18*s, 0.14*s, 0.36*s, 0xb5653d, x, 0, z);
+  sph(furn, 0.3*s, 0x4f8a3c, x, 0.62*s, z);
+  sph(furn, 0.22*s, 0x5f9c46, x + 0.15*s, 0.82*s, z - 0.08*s);
+  sph(furn, 0.18*s, 0x467d35, x - 0.14*s, 0.9*s, z + 0.1*s);
+}
+function painting(x, y, z, ry, w, h, cols) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; decor.add(g);
+  box(g, w + 0.08, h + 0.08, 0.04, 0x3a2e24, 0, -(h+0.08)/2, 0);
+  const art = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map:artTex(...cols), roughness:0.9 }));
+  art.position.z = 0.025; g.add(art);
+}
+
+// Camere
+bedRoom('r1', -8, -6.83, 0); bedRoom('r2', 0, -6.83, 0); bedRoom('r3', 8, -6.83, 0); bedRoom('r4', 8, 6.83, Math.PI);
+wardrobe(-11.6, -2.6, Math.PI/2); wardrobe(-3.6, -2.6, Math.PI/2); wardrobe(4.4, -2.6, Math.PI/2); wardrobe(4.4, 2.6, Math.PI/2);
+armchair(-5.6, -2.4, -2.4, 0x9c8ab8); armchair(2.4, -2.4, -2.4, 0x8a96c4); armchair(10.4, -2.4, -2.4, 0x96ad78); armchair(10.6, 2.6, -0.75, 0xe0c56b);
+rug(-8, -4.9, 2.4, 1.4, 0xe6dcf0); rug(0, -4.9, 2.4, 1.4, 0xdfe3f3); rug(8, -4.9, 2.4, 1.4, 0xe3ead6); rug(8, 4.9, 2.4, 1.4, 0xf6ebc9);
+painting(-8, 2.05, -7.88, 0, 1.0, 0.7, ['#cdb8e6','#f2d06b','#7b5ea7']);
+painting( 0, 2.05, -7.88, 0, 1.0, 0.7, ['#c4cdf0','#f4a86b','#5d6db0']);
+painting( 8, 2.05, -7.88, 0, 1.0, 0.7, ['#d8e6c8','#f6e27a','#6f8c4b']);
+painting( 8, 2.05,  7.88, Math.PI, 1.0, 0.7, ['#fbe9b0','#f08a4b','#c9a22e']);
+plant(-4.5, -7.4, 0.9); plant(3.5, -7.4, 0.9); plant(11.4, -7.4, 0.9); plant(11.4, 7.4, 0.9);
+
+// Reception
+box(furn, 0.3, 1.12, 3.0, WOODL, -9.95, 0, 4.4);
+box(furn, 0.42, 0.04, 3.1, 0x5d3f27, -9.95, 1.12, 4.4);
+box(furn, 0.8, 0.75, 3.0, WOOD, -10.5, 0, 4.4);
+box(furn, 0.05, 0.36, 0.56, 0x222222, -10.35, 0.95, 4.6);
+box(furn, 0.12, 0.2, 0.12, 0x333333, -10.35, 0.75, 4.6);
+box(furn, 0.18, 0.02, 0.45, 0x3a3a3a, -10.6, 0.75, 4.6);
+cyl(furn, 0.05, 0.06, 0.05, M(0xd4b26a, { metalness:0.8, roughness:0.25 }), -9.95, 1.16, 5.3);
+chair(-11.35, 5.6, Math.PI/2, 0x3d3d3d);
+box(decor, 0.04, 0.6, 1.0, WOOD, -11.88, 1.3, 4.4);
+for (let i = 0; i < 4; i++) box(decor, 0.05, 0.12, 0.05, M(0xd4b26a, { metalness:0.7, roughness:0.3 }), -11.84, 1.5, 4.05 + i*0.23);
+painting(-11.88, 2.5, 6.6, Math.PI/2, 0.8, 0.55, ['#d9c8ef','#f5c45e','#8e6bb8']);
+const sofa = G(-5.55, 4.6, -Math.PI/2);
+box(sofa, 2.0, 0.42, 0.85, 0x6c8fa3, 0, 0, 0); box(sofa, 2.0, 0.45, 0.2, 0x6c8fa3, 0, 0.42, -0.33);
+box(sofa, 0.18, 0.25, 0.85, 0x5d7f93, -0.95, 0.42, 0); box(sofa, 0.18, 0.25, 0.85, 0x5d7f93, 0.95, 0.42, 0);
+cyl(furn, 0.38, 0.38, 0.04, WOODL, -6.7, 0.42, 4.6); cyl(furn, 0.05, 0.05, 0.42, WOOD, -6.7, 0, 4.6);
+rug(-7.6, 4.9, 2.6, 3.0, 0xe8d6c0);
+plant(-11.4, 7.4, 1.1); plant(-5.6, 7.4, 1); plant(-5.6, 1.7, 0.9);
+
+// Cucina comune
+const CAB = 0xe9e2d3, TOP = 0x4a4540;
+box(furn, 7.7, 0.88, 0.62, CAB, -0.95, 0, 7.59);
+box(furn, 7.76, 0.04, 0.66, TOP, -0.95, 0.88, 7.57);
+for (let x = -4.4; x < 2.9; x += 0.6) box(furn, 0.012, 0.8, 0.01, 0xcbbfa9, x, 0.04, 7.27);
+box(furn, 0.72, 0.02, 0.44, 0x9aa0a6, -2, 0.92, 7.55);
+cyl(furn, 0.02, 0.02, 0.32, M(0xc0c4c8, { metalness:0.8, roughness:0.2 }), -2, 0.92, 7.8);
+box(furn, 0.62, 0.02, 0.55, 0x1d1d1d, 1, 0.92, 7.57);
+[[-0.14,-0.13],[0.14,-0.13],[-0.14,0.13],[0.14,0.13]].forEach(([a,b]) => cyl(furn, 0.08, 0.08, 0.01, 0x444444, 1+a, 0.94, 7.57+b));
+cyl(furn, 0.14, 0.13, 0.16, M(0xb5b8bb, { metalness:0.6, roughness:0.35 }), 0.86, 0.95, 7.44);
+box(furn, 0.8, 1.95, 0.7, M(0xdfe3e6, { metalness:0.35, roughness:0.35 }), 3.45, 0, 7.5);
+box(furn, 0.03, 0.5, 0.03, 0x888888, 3.15, 1.2, 7.14);
+box(decor, 1.8, 0.7, 0.35, CAB, -3.9, 1.5, 7.72);
+box(furn, 0.7, 0.86, 3.0, WOODL, -4.5, 0, 3.8);
+box(furn, 0.74, 0.03, 3.04, 0xf4f0e8, -4.5, 0.86, 3.8);
+box(furn, 0.32, 0.42, 0.32, 0x2f2f2f, -4.55, 0.89, 2.6);
+cyl(furn, 0.22, 0.14, 0.1, WHITE, -4.5, 0.89, 3.6);
+for (let i = 0; i < 4; i++) { const c = sph(furn, 0.07, 0xd9a35a, -4.5 + Math.cos(i*1.6)*0.09, 1.02, 3.6 + Math.sin(i*1.6)*0.09, 10); c.scale.set(1.6,0.8,1); }
+cyl(furn, 0.2, 0.12, 0.1, 0x7a5a3a, -4.5, 0.89, 4.3);
+[[0xd94a3a,0,0],[0xf2b632,0.08,0.06],[0x7fae3c,-0.08,0.05],[0xf28c28,0.03,-0.09]].forEach(([c,a,b]) => sph(furn, 0.065, c, -4.5+a, 1.04, 4.3+b, 10));
+[4.85, 5.0].forEach((z, i) => cyl(furn, 0.06, 0.06, 0.24, new THREE.MeshStandardMaterial({ color:i?0xf6c343:0xf08a2c, transparent:true, opacity:0.85, roughness:0.2 }), -4.55, 0.89, z, 14));
+box(furn, 2.4, 0.05, 1.0, WOODL, 0, 0.72, 4.2);
+[[-1.1,-0.42],[1.1,-0.42],[-1.1,0.42],[1.1,0.42]].forEach(([a,b]) => box(furn, 0.06, 0.72, 0.06, WOOD, a, 0, 4.2+b));
+[-0.8, 0, 0.8].forEach(x => { chair(x, 3.42, 0); chair(x, 4.98, Math.PI); });
+[-0.8, 0, 0.8].forEach(x => { cyl(furn, 0.12, 0.12, 0.01, WHITE, x, 0.77, 3.82, 16); cyl(furn, 0.12, 0.12, 0.01, WHITE, x, 0.77, 4.58, 16); });
+cyl(furn, 0.06, 0.05, 0.18, 0x7b5ea7, 0, 0.77, 4.2, 12); sph(furn, 0.1, 0xb59ad8, 0, 1.02, 4.2, 12);
+[-0.6, 0.6].forEach(x => { cyl(decor, 0.008, 0.008, 1.1, 0x333333, x, 1.9, 4.2, 6); cyl(decor, 0.08, 0.22, 0.2, lampMat, x, 1.75, 4.2); });
+painting(3.88, 2.2, 4.2, -Math.PI/2, 1.1, 0.75, ['#f5e1c0','#e46b4a','#9c7a4d']);
+plant(3.4, 1.6, 0.9);
+
+// Corridoio
+rug(0, 0, 22, 0.85, 0xa33b3b);
+box(furn, 21.6, 0.013, 0.05, 0xe9c77b, 0, 0, 0.36); box(furn, 21.6, 0.013, 0.05, 0xe9c77b, 0, 0, -0.36);
+plant(-11.5, 0.55, 0.8); plant(11.5, -0.6, 0.7);
+painting(-4, 2.1, -0.88, 0, 0.9, 0.6, ['#e1ecf3','#f2c14e','#5a8fa6']);
+painting( 4, 2.1, -0.88, 0, 0.9, 0.6, ['#f3e3e1','#e07a5f','#8e6bb8']);
+
+// ---------- Esterno ----------
+const outside = new THREE.Group(); scene.add(outside);
+box(outside, 1.6, 0.04, 10.5, 0xd6c6a2, -8.5, -0.3, 13.6);
+function tree(x, z, s) {
+  cyl(outside, 0.14*s, 0.2*s, 1.7*s, 0x6b4a32, x, -0.3, z, 10);
+  sph(outside, 1.1*s, 0x5c8f45, x, 1.9*s, z, 14);
+  sph(outside, 0.8*s, 0x6ea353, x + 0.5*s, 2.4*s, z + 0.2*s, 12);
+  sph(outside, 0.7*s, 0x4f7f3b, x - 0.5*s, 2.2*s, z - 0.3*s, 12);
+}
+[[-17,11,1.2],[16,12,1.1],[-18,-6,1.3],[17,-9,1.2],[0,-13,1.0],[-9,-14,1.25],[10,-14.5,1.1],[20,2,1.0],[-21,3,1.0],[4,15,0.9]].forEach(t => tree(...t));
+const FL = [0x9b7fc9, 0xf2a7c3, 0xffffff, 0xf4c14d];
+[[-11,1.6],[-4.2,3],[1.6,3.2],[8.2,5.6]].forEach(([x,w]) => {
+  box(outside, w, 0.28, 0.6, 0x6b4a32, x, -0.3, 8.75);
+  for (let i = 0; i < w*5; i++) sph(outside, 0.08, FL[i % 4], x - w/2 + 0.1 + Math.random()*(w-0.2), 0.05, 8.6 + Math.random()*0.3, 8);
+});
+const PW = M(0x7a5536);
+[[-9.6,8.4],[-7.4,8.4],[-9.6,10.2],[-7.4,10.2]].forEach(([x,z]) => box(outside, 0.14, 2.75, 0.14, PW, x, -0.3, z));
+box(outside, 0.1, 0.14, 2.2, PW, -9.6, 2.45, 9.3); box(outside, 0.1, 0.14, 2.2, PW, -7.4, 2.45, 9.3);
+for (let i = 0; i < 6; i++) box(outside, 2.6, 0.08, 0.08, PW, -8.5, 2.59, 8.4 + i*0.36);
+for (let i = 0; i < 26; i++) { const c = sph(outside, 0.09 + Math.random()*0.05, i % 3 ? 0x9b7fc9 : 0xb89ae0, -9.7 + Math.random()*2.4, 2.35 - Math.random()*0.35, 8.4 + Math.random()*1.9, 8); c.scale.y = 1.8; }
+box(outside, 1.4, 0.06, 0.4, WOODL, -11.5, 0.15, 11.5); box(outside, 0.06, 0.45, 0.4, 0x333333, -12.1, -0.3, 11.5); box(outside, 0.06, 0.45, 0.4, 0x333333, -10.9, -0.3, 11.5);
+box(outside, 0.08, 1.6, 0.08, 0x3a2e24, -6.6, -0.3, 13); box(outside, 0.08, 1.6, 0.08, 0x3a2e24, -5.0, -0.3, 13);
+const signMat = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.7 });
+const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.75), signMat); sign.position.set(-5.8, 1.0, 13.05); outside.add(sign);
+box(outside, 1.76, 0.8, 0.04, 0x3a2e24, -5.8, 0.6, 13.0);
+const porchLamp = sph(outside, 0.09, lampMat, -8.5, 2.3, 8.35, 10);
+
+// ---------- Tetto ----------
+const roof = new THREE.Group(); roof.visible = false; scene.add(roof);
+const roofMat = M(0xa4492f, { roughness:0.85 });
+const RUN = 8.7, RISE = 2.6, LEN = 25.4;
+[-1, 1].forEach(s => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(LEN, 0.18, Math.hypot(RUN, RISE)), roofMat);
+  m.position.set(0, H + RISE/2, s*RUN/2); m.rotation.x = s*Math.atan2(RISE, RUN); m.castShadow = m.receiveShadow = true; roof.add(m);
+});
+const tri = new THREE.Shape(); tri.moveTo(-8.1, 0); tri.lineTo(8.1, 0); tri.lineTo(0, RISE*8.1/RUN); tri.closePath();
+[-12, 12].forEach(x => { const m = new THREE.Mesh(new THREE.ExtrudeGeometry(tri, { depth:0.2, bevelEnabled:false }), extWall); m.rotation.y = Math.PI/2; m.position.set(x - 0.1, H, 0); m.castShadow = true; roof.add(m); });
+box(roof, 0.5, 1.2, 0.5, 0xb0533a, 6, H + 1.2, -2.5);
+
+// ---------- Luci interne ----------
+const roomLights = {};
+Object.entries(ROOMS).forEach(([k, r]) => {
+  const [x1,z1,x2,z2] = r.b;
+  const L = new THREE.PointLight(0xffc98a, 0, k === 'corridor' ? 16 : 10, 1.4);
+  L.position.set((x1+x2)/2, 2.6, (z1+z2)/2); scene.add(L); roomLights[k] = L;
+});
+const porchLight = new THREE.PointLight(0xffd59a, 0, 8, 1.5); porchLight.position.set(-8.5, 2.2, 9.3); scene.add(porchLight);
+
+// ---------- Persone ----------
+const people = new THREE.Group(); people.position.y = 0.04; scene.add(people);
+const SKIN = [0xf1c9a5,0xe0ac7e,0xc68642,0x8d5524,0xf6d7c3];
+const HAIR = [0x2b1d14,0x5a3a22,0xc9a15c,0x111111,0x8a4b2a,0xbfbfbf];
+const SHIRT = [0xd9534f,0x4f86c6,0x5cb85c,0xf0ad4e,0x8e6bb8,0x2bb3a3,0xe57aa8,0x34495e,0xf2e6c9];
+const PANTS = [0x2f3b52,0x3b3b3b,0x6b5a45,0x1f2a44,0x8c7a5b];
+function person(o = {}) {
+  const g = new THREE.Group();
+  const skin = o.skin ?? pick(SKIN), hair = o.hair ?? pick(HAIR), shirt = o.shirt ?? pick(SHIRT), pants = o.pants ?? pick(PANTS);
+  const legs = [], arms = [];
+  [-0.09, 0.09].forEach(x => { const p = new THREE.Group(); p.position.set(x, 0.82, 0); box(p, 0.13, 0.82, 0.15, pants, 0, -0.82, 0); g.add(p); legs.push(p); });
+  cyl(g, 0.19, 0.22, 0.62, shirt, 0, 0.8, 0, 14);
+  if (o.apron) box(g, 0.32, 0.5, 0.03, 0xffffff, 0, 0.75, 0.2);
+  [-0.27, 0.27].forEach(x => { const p = new THREE.Group(); p.position.set(x, 1.38, 0); box(p, 0.09, 0.56, 0.1, shirt, 0, -0.56, 0); sph(p, 0.05, skin, 0, -0.6, 0, 8); g.add(p); arms.push(p); });
+  sph(g, 0.135, skin, 0, 1.58, 0, 16);
+  const h = sph(g, 0.145, hair, 0, 1.63, -0.03, 16); h.scale.set(1, 0.75, 1);
+  if (o.cap) cyl(g, 0.15, 0.15, 0.05, o.cap, 0, 1.69, 0, 14);
+  g.userData = { legs, arms };
+  return g;
+}
+function makeTag(text, bg) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:tagTex(text, bg), depthTest:false, transparent:true }));
+  s.scale.set(1.5, 0.47, 1); s.renderOrder = 998; s.userData.bg = bg; return s;
+}
+function retag(s, text, bg) { if (s.material.map) s.material.map.dispose(); s.material.map = tagTex(text, bg || s.userData.bg); s.userData.bg = bg || s.userData.bg; s.material.needsUpdate = true; }
+function tagTex(text, bg) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 80; const g = c.getContext('2d');
+  g.font = '700 34px "DM Sans", sans-serif'; const w = Math.min(250, g.measureText(text).width + 40), x0 = (256 - w)/2;
+  g.fillStyle = bg; g.beginPath(); g.moveTo(x0+20,8); g.arcTo(x0+w,8,x0+w,60,20); g.arcTo(x0+w,60,x0,60,20); g.arcTo(x0,60,x0,8,20); g.arcTo(x0,8,x0+w,8,20); g.fill();
+  g.beginPath(); g.moveTo(118,58); g.lineTo(128,74); g.lineTo(138,58); g.fill();
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 35);
+  return new THREE.CanvasTexture(c);
+}
+// Walker: segue una lista di punti, a velocità in metri per minuto di gioco
+const WALK = 1.6;
+const walkers = new Set();
+function makeWalker(g, members) { const w = { g, members, path:[], cb:null, phase:0, heading:g.rotation.y, moving:false }; walkers.add(w); return w; }
+function walkTo(w, pts, cb) { w.path = pts.map(V); w.cb = cb || null; }
+function stepWalker(w, dt) {
+  let step = WALK * dt; w.moving = false;
+  while (step > 0 && w.path.length) {
+    const tgt = w.path[0], d = tgt.clone().sub(w.g.position); d.y = 0; const dist = d.length();
+    if (dist > 0.001) w.heading = Math.atan2(d.x, d.z);
+    if (dist <= step) { w.g.position.copy(tgt); step -= dist; w.path.shift(); w.phase += dist*3.2; }
+    else { d.multiplyScalar(step/dist); w.g.position.add(d); w.phase += step*3.2; step = 0; w.moving = true; }
+  }
+  if (!w.path.length && w.cb) { const cb = w.cb; w.cb = null; cb(); }
+}
+function animWalker(w, dtReal) {
+  let diff = w.heading - w.g.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+  w.g.rotation.y += diff * Math.min(1, dtReal * 9);
+  const sw = w.moving ? Math.sin(w.phase) * 0.55 : 0;
+  w.members.forEach((m, i) => {
+    const s = i % 2 ? -sw : sw, u = m.userData;
+    u.legs[0].rotation.x += (s - u.legs[0].rotation.x) * 0.3; u.legs[1].rotation.x += (-s - u.legs[1].rotation.x) * 0.3;
+    u.arms[0].rotation.x += (-s*0.7 - u.arms[0].rotation.x) * 0.3; u.arms[1].rotation.x += (s*0.7 - u.arms[1].rotation.x) * 0.3;
+    m.position.y = w.moving ? Math.abs(Math.sin(w.phase)) * 0.03 : 0;
+  });
+}
+
+// Receptionist (sei tu!) e cameriera
+const me = person({ shirt:0x7b5ea7, pants:0x2b2620, skin:0xe0ac7e, hair:0x2b1d14 });
+me.position.set(-11.3, 0, 4.1); me.rotation.y = Math.PI/2; people.add(me);
+const meTag = makeTag(t('tagYou'), '#7b5ea7'); meTag.position.set(0, 2.15, 0); me.add(meTag);
+const closedTag = makeTag(t('tagClosed'), '#2f3346'); closedTag.position.set(-9.95, 1.75, 4.4); closedTag.visible = false; scene.add(closedTag);
+const maidG = new THREE.Group(); const maidP = person({ shirt:0x2d2d3a, pants:0x2d2d3a, apron:true, skin:0xc68642, hair:0x111111, cap:0xffffff });
+maidG.add(maidP); maidG.position.copy(V(MAID_BASE)); maidG.visible = false; people.add(maidG);
+const maidW = makeWalker(maidG, [maidP]);
+
+// ---------- Etichette ----------
+const labels = new THREE.Group(); scene.add(labels);
+const labelSprites = {};
+function labelCanvas(title, sub, dot) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 176; const g = c.getContext('2d');
+  g.font = '600 50px "DM Sans", sans-serif'; let fs = 50, w1 = g.measureText(title).width;
+  if (w1 > 430) { fs = Math.floor(50 * 430 / w1); w1 = 430; }
+  g.font = '500 36px "DM Sans", sans-serif'; const w2 = sub ? g.measureText(sub).width + 34 : 0;
+  const w = Math.min(500, Math.max(w1, w2) + 60), x0 = (512 - w)/2, hgt = sub ? 150 : 96;
+  g.fillStyle = 'rgba(255,252,246,0.95)';
+  g.beginPath(); g.moveTo(x0+28,12); g.arcTo(x0+w,12,x0+w,12+hgt,28); g.arcTo(x0+w,12+hgt,x0,12+hgt,28); g.arcTo(x0,12+hgt,x0,12,28); g.arcTo(x0,12,x0+w,12,28); g.fill();
+  g.fillStyle = '#2b2620'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `600 ${fs}px "DM Sans", sans-serif`; g.fillText(title, 256, 62);
+  if (sub) {
+    g.font = '500 36px "DM Sans", sans-serif'; g.fillStyle = dot; g.beginPath(); g.arc(256 - w2/2 + 10, 118, 10, 0, 7); g.fill();
+    g.fillStyle = '#4a4238'; g.textAlign = 'left'; g.fillText(sub, 256 - w2/2 + 30, 119);
+  }
+  return c;
+}
+function setLabel(k, title, sub, dot) {
+  const key = title + '|' + sub + '|' + dot;
+  let s = labelSprites[k];
+  if (s && s.userData.key === key) return;
+  if (!s) {
+    s = new THREE.Sprite(new THREE.SpriteMaterial({ depthTest:false, transparent:true }));
+    s.scale.set(4, 1.375, 1); s.renderOrder = 999;
+    const [x1,z1,x2,z2] = ROOMS[k].b; s.position.set((x1+x2)/2, 4.2, (z1+z2)/2);
+    s.userData.room = k; labels.add(s); labelSprites[k] = s;
+  }
+  if (s.material.map) s.material.map.dispose();
+  s.material.map = new THREE.CanvasTexture(labelCanvas(title, sub, dot)); s.material.map.anisotropy = 4; s.material.needsUpdate = true;
+  s.userData.key = key;
+}
+function drawSign() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 226; const g = c.getContext('2d');
+  g.fillStyle = '#f7f0e3'; g.fillRect(0,0,512,226);
+  g.fillStyle = '#7b5ea7'; g.font = '600 76px Fraunces, serif'; g.textAlign = 'center'; g.fillText('B&B', 256, 98);
+  g.fillStyle = '#3a2e24'; g.font = '500 44px "DM Sans", sans-serif'; g.fillText('Il Glicine', 256, 160);
+  g.fillStyle = '#9b7fc9'; g.font = '30px serif'; g.fillText('✿  ✿  ✿', 256, 205);
+  if (signMat.map) signMat.map.dispose(); signMat.map = new THREE.CanvasTexture(c); signMat.needsUpdate = true;
+}
+
+/* =========================================================
+   LOGICA DI GIOCO
+   ========================================================= */
+const DEFAULTS = { closedFrom:23, closedTo:5, ciFrom:14, ciTo:21, coFrom:7, coTo:11, maidFrom:8, maidTo:18, cleanMin:60, price:80,
+  llm:{ on:false, prov:'claude', keys:{}, models:{}, bases:{}, remember:false, pauseChat:true }, askPct:50, enPct:60, langs:{} };
+let S = JSON.parse(JSON.stringify(DEFAULTS));
+/* =========================================================
+   LINGUE DEGLI OSPITI
+   ========================================================= */
+const GL = [
+  { c:'en', f:'🇬🇧', en:'English',   w:18, av:true,  fn:['James','Emily','Oliver','Charlotte','Jack','Grace'], sn:['Smith','Walker','Brown','Taylor'] },
+  { c:'de', f:'🇩🇪', en:'German',    w:14, av:true,  fn:['Lukas','Anna','Felix','Lena','Jonas','Mia'], sn:['Müller','Schmidt','Becker','Wagner'] },
+  { c:'es', f:'🇪🇸', en:'Spanish',   w:9,  av:true,  fn:['Lucía','Mateo','Sofía','Diego','Carmen','Pablo'], sn:['García','Fernández','López','Martín'] },
+  { c:'fr', f:'🇫🇷', en:'French',    w:10, av:true,  fn:['Camille','Hugo','Inès','Louis','Chloé','Théo'], sn:['Martin','Dubois','Moreau','Laurent'] },
+  { c:'it', f:'🇮🇹', en:'Italian',   w:12, av:true,  fn:['Giulia','Marco','Chiara','Luca','Sara','Paolo'], sn:['Rossi','Bianchi','Esposito','Ricci'] },
+  { c:'pt', f:'🇵🇹', en:'Portuguese',w:4,  av:false, fn:['João','Ana','Pedro','Beatriz','Tiago','Mariana'], sn:['Silva','Santos','Costa','Ferreira'] },
+  { c:'zh', f:'🇨🇳', en:'Mandarin Chinese', w:5, av:false, fn:['Wei','Fang','Hao','Mei','Jun','Lin'], sn:['Wang','Li','Zhang','Chen'] },
+  { c:'ar', f:'🇸🇦', en:'Arabic',    w:3,  av:false, fn:['Ahmed','Fatima','Omar','Layla','Youssef','Mariam'], sn:['Hassan','Haddad','Nasser','Khalil'] },
+  { c:'pl', f:'🇵🇱', en:'Polish',    w:3,  av:false, fn:['Jakub','Zofia','Piotr','Maja','Kacper','Julia'], sn:['Kowalski','Nowak','Wiśniewski','Wójcik'] },
+  { c:'ru', f:'🇷🇺', en:'Russian',   w:3,  av:false, fn:['Ivan','Olga','Dmitri','Anastasia','Sergei','Elena'], sn:['Smirnov','Volkov','Kuznetsov','Popov'] },
+  { c:'nl', f:'🇳🇱', en:'Dutch',     w:4,  av:false, fn:['Daan','Emma','Sem','Julia','Lucas','Sanne'], sn:['de Jong','Jansen','de Vries','Bakker'] },
+  { c:'ja', f:'🇯🇵', en:'Japanese',  w:3,  av:false, fn:['Yuki','Haruto','Sakura','Ren','Aoi','Kenji'], sn:['Tanaka','Sato','Suzuki','Takahashi'] },
+  { c:'ko', f:'🇰🇷', en:'Korean',    w:2,  av:false, fn:['Min-jun','Seo-yeon','Ji-ho','Ha-eun','Do-yun','Ji-woo'], sn:['Kim','Lee','Park','Choi'] },
+  { c:'tr', f:'🇹🇷', en:'Turkish',   w:2,  av:false, fn:['Mehmet','Elif','Emre','Zeynep','Can','Ayşe'], sn:['Yılmaz','Kaya','Demir','Şahin'] },
+  { c:'sv', f:'🇸🇪', en:'Swedish',   w:2,  av:false, fn:['Erik','Astrid','Lars','Ebba','Oskar','Freja'], sn:['Andersson','Johansson','Karlsson','Nilsson'] },
+  { c:'ro', f:'🇷🇴', en:'Romanian',  w:2,  av:false, fn:['Andrei','Ioana','Mihai','Elena','Radu','Ana'], sn:['Popescu','Ionescu','Dumitru','Stan'] },
+  { c:'cs', f:'🇨🇿', en:'Czech',     w:1,  av:false, fn:['Jan','Tereza','Tomáš','Eliška','Jakub','Lucie'], sn:['Novák','Svoboda','Dvořák','Černý'] },
+  { c:'hi', f:'🇮🇳', en:'Hindi',     w:1,  av:false, fn:['Aarav','Priya','Rohan','Ananya','Vikram','Diya'], sn:['Sharma','Patel','Gupta','Singh'] },
+  { c:'el', f:'🇬🇷', en:'Greek',     w:1,  av:false, fn:['Giorgos','Maria','Nikos','Eleni','Dimitris','Sofia'], sn:['Papadopoulos','Nikolaou','Georgiou','Pappas'] },
+  { c:'hu', f:'🇭🇺', en:'Hungarian', w:1,  av:false, fn:['Bence','Anna','Máté','Zsófia','Levente','Réka'], sn:['Nagy','Kovács','Tóth','Szabó'] }
+];
+const GLx = Object.fromEntries(GL.map(g => [g.c, g]));
+function langName(c) {
+  let n = GLx[c].en;
+  try { n = new Intl.DisplayNames([LANGS[LI][2]], { type:'language' }).of(c) || n; } catch (e) {}
+  n = n.charAt(0).toLocaleUpperCase(LANGS[LI][2]) + n.slice(1);
+  return c === 'zh' ? `${n} (${t('mandarin')})` : n;
+}
+function speakLabel(p) {
+  const g = GLx[p.lang];
+  return `${g.f} ${p.speak === 'native' ? langName(p.lang) : t(p.speak === 'en' ? 'enFluent' : 'enBasic')}`;
+}
+function pickGuestLang() {
+  const ws = GL.map(g => Math.max(0, +S.langs[g.c].w || 0)), tot = ws.reduce((a, b) => a + b, 0);
+  let r = Math.random() * (tot || 1), i = 0;
+  if (!tot) return 'en';
+  for (; i < GL.length; i++) { r -= ws[i]; if (r <= 0) break; }
+  return GL[Math.min(i, GL.length - 1)].c;
+}
+function guestIdentity(size) {
+  const c = pickGuestLang(), g = GLx[c];
+  const speak = (c === 'en' || S.langs[c].av) ? 'native' : (Math.random() * 100 < S.enPct ? 'en' : 'enb');
+  let name;
+  if (size === 2) name = Math.random() < 0.5 ? { type:'couple', s:pick(g.sn) } : (() => { const a = pick(g.fn); let b = pick(g.fn); while (b === a) b = pick(g.fn); return { type:'pair', a, b }; })();
+  else name = { type:'single', full:`${pick(g.fn)} ${pick(g.sn)}` };
+  return { lang:c, speak, name };
+}
+const nameEN = o => o.type === 'couple' ? `Mr and Mrs ${o.s}` : o.type === 'pair' ? `${o.a} and ${o.b}` : o.full;
+const roomEN = k => `Room ${k[1]} (${L['fl_' + k][1]})`;
+
+// 25 situazioni tipiche dell'hotellerie per i giorni intermedi
+const SITS = [
+  'you would like recommendations for a good local restaurant for dinner tonight',
+  'the Wi-Fi in your room does not work, or you lost the password',
+  'you need extra towels and an extra pillow',
+  'you could not sleep because of noise from another room or the street last night',
+  'you would like to ask for a late check-out on your departure day',
+  'the air conditioning or heating in your room is not working',
+  'you want the receptionist to book a taxi to the train station or airport for tomorrow',
+  'you want directions to the old town and the main sights',
+  'you want to know breakfast times and if there are gluten-free or vegan options',
+  'you lost your room key',
+  'you want to leave your luggage at the hotel for a few hours on your departure day',
+  'you feel unwell (headache, mild fever) and need a pharmacy or a doctor',
+  'you want to know if there is a laundry service or a laundrette nearby',
+  'you would like to extend your stay by one more night',
+  'you need an invoice with your company details for your stay',
+  'you are asking where you can park your car and how much it costs',
+  'you want to book a guided tour or a day trip in the area',
+  'you would like a wake-up call or help setting an early alarm for tomorrow morning',
+  'you would like to change room because yours is too hot or too noisy',
+  'there is no hot water in the bathroom, or the shower is leaking',
+  'you need a baby cot or an extra bed in the room',
+  'it is your anniversary or birthday and you would like to organise a small surprise',
+  'you lost an item (phone charger, wallet or sunglasses) and ask if anyone found it',
+  'you want information about public transport tickets and timetables',
+  'you want to know about local events tonight and where to buy typical local products'
+];
+const MAXEX = 6;
+
+/* =========================================================
+   FORNITORI LLM
+   ========================================================= */
+const PROV = {
+  claude:     { n:() => t('builtinName'), builtin:true },
+  openai:     { n:() => 'OpenAI', kind:'openai', base:'https://api.openai.com/v1', model:'gpt-4.1-mini' },
+  anthropic:  { n:() => 'Anthropic (Claude API)', kind:'anthropic', base:'https://api.anthropic.com/v1', model:'claude-haiku-5-5' },
+  gemini:     { n:() => 'Google Gemini', kind:'gemini', base:'https://generativelanguage.googleapis.com/v1beta', model:'gemini-2.5-flash' },
+  mistral:    { n:() => 'Mistral AI', kind:'openai', base:'https://api.mistral.ai/v1', model:'mistral-small-latest' },
+  groq:       { n:() => 'Groq', kind:'openai', base:'https://api.groq.com/openai/v1', model:'llama-3.3-70b-versatile' },
+  deepseek:   { n:() => 'DeepSeek', kind:'openai', base:'https://api.deepseek.com/v1', model:'deepseek-chat' },
+  openrouter: { n:() => 'OpenRouter', kind:'openai', base:'https://openrouter.ai/api/v1', model:'openai/gpt-4.1-mini' },
+  ollama:     { n:() => t('ollamaName'), kind:'openai', base:'http://localhost:11434/v1', model:'llama3.1', nokey:true },
+  custom:     { n:() => t('customName'), kind:'openai', base:'', model:'' }
+};
+let sampleNS = null;
+(async () => { try { if (window.claude && typeof window.claude.use === 'function') sampleNS = await window.claude.use('sample'); } catch (e) { sampleNS = null; } })();
+const onClaudeSite = () => !!window.claude || /claude\.ai|claudeusercontent/.test(location.hostname);
+const llmCfg = prov => ({ key:(S.llm.keys[prov] || '').trim(), model:(S.llm.models[prov] || '').trim(), base:(S.llm.bases[prov] || '').trim() });
+
+// convo: [{role:'user'|'assistant', content}] che inizia e finisce con 'user'
+async function llm(system, convo, prov = S.llm.prov) {
+  const P = PROV[prov], cfg = llmCfg(prov);
+  if (P.builtin) {
+    if (!sampleNS) throw new Error(t('noBuiltin'));
+    const msgs = convo.map((m, i) => i === 0 ? { role:'user', content: system + '\n\n---\n\n' + m.content } : m);
+    try { const r = await sampleNS(msgs, { cache:false, modelTier:'quick' }); return r.text || ''; }
+    catch (e) { throw new Error(e && (e.message || e.code) || 'error'); }
+  }
+  if (!P.nokey && !cfg.key) throw new Error(t('noKey'));
+  const base = (cfg.base || P.base).replace(/\/+$/, ''), model = cfg.model || P.model;
+  let res;
+  try {
+    if (P.kind === 'openai') {
+      const h = { 'Content-Type':'application/json' }; if (cfg.key) h.Authorization = 'Bearer ' + cfg.key;
+      res = await fetch(base + '/chat/completions', { method:'POST', headers:h, body:JSON.stringify({ model, messages:[{ role:'system', content:system }, ...convo] }) });
+    } else if (P.kind === 'anthropic') {
+      res = await fetch(base + '/messages', { method:'POST', headers:{ 'content-type':'application/json', 'x-api-key':cfg.key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+        body:JSON.stringify({ model, max_tokens:600, system, messages:convo }) });
+    } else {
+      res = await fetch(`${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(cfg.key)}`, { method:'POST', headers:{ 'Content-Type':'application/json' },
+        body:JSON.stringify({ systemInstruction:{ parts:[{ text:system }] }, contents:convo.map(m => ({ role:m.role === 'assistant' ? 'model' : 'user', parts:[{ text:m.content }] })), generationConfig:{ maxOutputTokens:2048 } }) });
+    }
+  } catch (e) { throw new Error(onClaudeSite() ? t('cspErr') : (e.message || 'network error')); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const er = data.error; throw new Error((er && (er.message || (typeof er === 'string' ? er : ''))) || ('HTTP ' + res.status)); }
+  if (P.kind === 'openai') return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+  if (P.kind === 'anthropic') return (data.content || []).map(c => c.text || '').join('');
+  return ((data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || []).map(p => p.text || '').join('');
+}
+function parseJSON(txt) {
+  if (!txt) return null;
+  const m = txt.replace(/```(json)?/g, '').match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch (e) {} }
+  return null;
+}
+
+/* =========================================================
+   CONVERSAZIONI
+   ========================================================= */
+let chatPid = null;
+function guestLangRule(p) {
+  const n = GLx[p.lang].en;
+  const script = p.lang === 'zh' ? ' (simplified Chinese characters)' : ['ja','ko','ar','ru','el','hi'].includes(p.lang) ? ' (in its native script)' : '';
+  if (p.speak === 'native') return `You speak ONLY ${n}${script}. Every message you write is in natural ${n}.`;
+  if (p.speak === 'en') return `Your native language is ${n}, but nobody at this hotel speaks it, so you speak English: fluent and natural, not native. Do not switch to ${n}.`;
+  return `Your native language is ${n}, but nobody at this hotel speaks it and you only know BASIC English (level A1–A2): very short simple sentences, basic words and a few small grammar mistakes. Once in a while you may use a single ${n} word when stuck. If the receptionist uses complicated English, politely ask them to say it more simply.`;
+}
+const expectedLang = p => p.speak === 'native' ? GLx[p.lang].en : (p.speak === 'en' ? 'English' : 'simple, clear English');
+function situationText(p) {
+  const bill = p.nights * S.price, nn = `${p.nights} night${p.nights === 1 ? '' : 's'}`;
+  if (p.kind === 'in') return `You have just arrived with your luggage. You booked ${nn} (${p.nights} × ${S.price} € = ${bill} €). You want to check in. You may ask or mention one or two typical things (breakfast time, Wi-Fi, parking, a tip for dinner). The receptionist will give you a room: you will see an [Action] note when they do.`;
+  if (p.kind === 'out') return `It is your departure day after ${nn} in ${roomEN(p.room)}. You want to check out and pay ${bill} €. You may say something about your stay or ask one small thing (a taxi, leaving your luggage, a receipt).`;
+  return `You are staying in ${roomEN(p.room)}. Today you come to the reception desk because ${SITS[p.sit]}. Explain your need. When the receptionist has solved it or handled it reasonably, thank them and end the conversation.`;
+}
+function sysPrompt(p) {
+  return `You are role-playing a hotel GUEST in a language-practice game. The user plays the RECEPTIONIST of "B&B Il Glicine", a small bed & breakfast in Italy with 4 double rooms (Room 1 Wisteria, Room 2 Lavender, Room 3 Olive Tree, Room 4 Lemon), a reception and a shared kitchen with a breakfast buffet (7:30–10:30). Price: ${S.price} € per night. Check-in from ${hh(S.ciFrom)}, check-out until ${hh(S.coTo)}. Free Wi-Fi.
+You are ${nameEN(p.name)}, ${p.size === 2 ? 'travelling as a couple (you speak for both of you)' : 'travelling alone'}.
+LANGUAGE: ${guestLangRule(p)}
+SITUATION: ${situationText(p)}
+RULES:
+- Stay in character as the guest. Never act as the receptionist or as a teacher; never translate or correct what the receptionist writes.
+- Keep every message short: 1 to 3 sentences.
+- React realistically to the receptionist's words and tone. If they write in a language you do not understand, show polite confusion in your own language.
+- The receptionist has at most ${MAXEX} replies in total. When your need is satisfied or you have said goodbye, set "end" to true.
+- Notes in square brackets like [Action: ...] describe what the receptionist physically did.
+OUTPUT: reply ONLY with a JSON object and nothing else: {"say": "<your words>", "end": false}`;
+}
+function openingText(p) {
+  if (p.kind === 'in') return '(You walk into the reception with your luggage; the receptionist is behind the desk.) Start the conversation with your first message.';
+  if (p.kind === 'out') return '(Morning of your departure: you come to the reception desk with your luggage.) Start the conversation with your first message.';
+  return '(You come to the reception desk.) Start the conversation with your first message.';
+}
+function ensureConv(p) {
+  if (!p.conv) p.conv = { msgs:[], api:[{ role:'user', content:openingText(p) }], ex:0, ended:false, rated:false, busy:false, err:null };
+  return p.conv;
+}
+function pushUser(c, text) {
+  const last = c.api[c.api.length - 1];
+  if (last && last.role === 'user') last.content += '\n' + text; else c.api.push({ role:'user', content:text });
+}
+const convActive = p => p.conv && !p.conv.rated && (p.conv.msgs.length > 0 || p.conv.busy);
+async function guestSpeak(p) {
+  const c = p.conv; if (c.busy) return;
+  c.busy = true; c.err = null; renderChat();
+  try {
+    const txt = await llm(sysPrompt(p), c.api);
+    const j = parseJSON(txt);
+    const say = (j && typeof j.say === 'string' && j.say.trim()) || txt.replace(/\{[\s\S]*\}/, '').trim() || '…';
+    c.api.push({ role:'assistant', content:JSON.stringify({ say, end:!!(j && j.end) }) });
+    c.msgs.push({ who:'g', text:say });
+    if ((j && j.end && c.ex > 0) || c.ex >= MAXEX) c.ended = true;   // l'ospite non può chiudere prima che tu abbia risposto
+  } catch (e) { c.err = e.message || String(e); }
+  c.busy = false; renderChat(); markDirty();
+  if (c.ended && !c.rated) evaluate(p);
+}
+function sendReply(text) {
+  const p = byId(chatPid); if (!p || !p.conv) return;
+  const c = p.conv; text = text.trim();
+  if (!text || c.busy || c.ended || c.ex >= MAXEX) return;
+  c.msgs.push({ who:'r', text }); c.ex++;
+  pushUser(c, text + (c.ex >= MAXEX ? '\n[This was the receptionist\'s last reply: answer briefly, say goodbye and set "end": true.]' : ''));
+  guestSpeak(p);
+}
+function llmAction(p, noteEN, noteUI) {
+  const c = ensureConv(p);
+  c.msgs.push({ who:'sys', text:noteUI });
+  if (!c.msgs.some(m => m.who === 'r')) { evaluate(p); return; }
+  if (!c.ended && !c.rated) { pushUser(c, `[Action: ${noteEN}] (Thank the receptionist briefly, say goodbye and set "end": true.)`); guestSpeak(p); }
+  else if (!c.rated) evaluate(p);
+  renderChat();
+}
+function endConversation() {
+  const p = byId(chatPid); if (!p || !p.conv) return;
+  p.conv.ended = true; renderChat(); evaluate(p);
+}
+const clamp3 = v => Math.max(1, Math.min(3, Math.round(+v) || 1));
+async function evaluate(p) {
+  const c = p.conv; if (!c || c.rated || c.evaluating || c.busy) return;
+  c.ended = true;
+  if (!c.msgs.some(m => m.who === 'r')) { applyRating(p, 1, 1, t('noTalk'), ''); return; }
+  c.evaluating = true; c.err = null; renderChat();
+  const exp = expectedLang(p), uiLang = ['Italian','English','French','Spanish','German'][LI];
+  const transcript = c.msgs.map(m => m.who === 'g' ? `GUEST: ${m.text}` : m.who === 'r' ? `RECEPTIONIST: ${m.text}` : `[${m.text}]`).join('\n');
+  const prompt = `Evaluate the RECEPTIONIST in this hotel role-play used for language practice.
+The guest's own language is ${GLx[p.lang].en}; the receptionist should communicate in ${exp}.${p.speak === 'enb' ? ' The guest only speaks basic English, so short, simple and clear English is ideal.' : ''}
+Situation: ${situationText(p)}
+Transcript:
+${transcript}
+
+Give two scores:
+- "language" from 1 to 3: 3 = correct and natural ${exp} (tiny typos are fine); 2 = understandable but with clear mistakes, or partly in another language; 1 = wrong language, mostly incorrect or hard to understand.
+- "kindness" from 1 to 3: 3 = warm, polite, welcoming and helpful, the request was handled well; 2 = correct but cold, too short or incomplete; 1 = rude, dismissive or unhelpful.
+Then write in ${uiLang}: "comment" = a one-sentence review written by the guest about the receptionist; "tip" = one short, concrete tip to improve the receptionist's ${exp} or service (empty string if perfect).
+Reply ONLY with JSON: {"language": 1, "kindness": 1, "comment": "...", "tip": "..."}`;
+  try {
+    const txt = await llm('You are a fair, concise evaluator of hotel receptionists in role-play language practice. You always answer with JSON only.', [{ role:'user', content:prompt }]);
+    const j = parseJSON(txt) || {};
+    applyRating(p, clamp3(j.language), clamp3(j.kindness), j.comment || '', j.tip || '');
+  } catch (e) { c.evaluating = false; c.err = e.message || String(e); c.evalErr = true; renderChat(); }
+}
+function applyRating(p, l, k, comment, tip) {
+  const c = p.conv; c.rating = { l, k, comment, tip }; c.rated = true; c.evaluating = false; c.evalErr = false;
+  const score = Math.min(5, l + k);
+  addReview(score);
+  addLog('L_review', [p.name, score, l, k], score >= 4 ? 'good' : score <= 2 ? 'bad' : '');
+  if (l + k === 6) { game.hearts++; addLog('L_heart', [p.name], 'good'); toast(t('heartWon')); }
+  if (p.kind === 'ask' && p.status === 'queue') finishAsk(p);
+  renderChat(); markDirty();
+}
+function finishAsk(p) {
+  removeFromQueue(p); p.tag.visible = false; p.status = 'toRoom';
+  walkTo(p.w, [...DESK_HALL, ...roomChain(p.room).slice().reverse()], () => { p.status = 'inRoom'; p.w.heading = RM[p.room].face; syncRoom(p.room); markDirty(); });
+  markDirty();
+}
+function openChat(id) {
+  const p = byId(id); if (!p || !S.llm.on) return;
+  chatPid = id; const c = ensureConv(p);
+  renderChat();
+  if (!c.msgs.length && !c.busy && !c.rated) guestSpeak(p);
+  setTimeout(() => $('chIn') && $('chIn').focus(), 50);
+}
+function closeChat() { chatPid = null; renderChat(); }
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+const stars3 = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+function renderChat() {
+  const box = $('chat'), p = chatPid ? byId(chatPid) : null;
+  if (!p || !p.conv) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const c = p.conv, nm = nameStr(p.name);
+  const kindLbl = p.kind === 'in' ? t('ci') : p.kind === 'out' ? t('co') : t('ask');
+  $('chName').textContent = nm;
+  $('chSub').textContent = `${kindLbl} · ${speakLabel(p)} · ${t('exchanges', c.ex, MAXEX)}`;
+  let h = c.msgs.map(m => `<div class="bub ${m.who}">${esc(m.text)}</div>`).join('');
+  if (c.busy) h += `<div class="typing">${t('typing', esc(nm))}</div>`;
+  if (c.evaluating) h += `<div class="typing">${t('evaluating')}</div>`;
+  if (c.err) h += `<div class="chErr">${esc(c.err)} <button data-ch="retry">${t('retry')}</button></div>`;
+  if (c.rating) {
+    const r = c.rating, s = Math.min(5, r.l + r.k);
+    h += `<div class="rate"><div><b>${t('rTotal')}: ${'★'.repeat(s)}${'☆'.repeat(5 - s)} ${s}/5</b>${r.l + r.k === 6 ? ' · ❤️' : ''}</div>
+      <div>${t('lang')}: <span class="stars">${stars3(r.l)}</span> &nbsp; ${t('rKind')}: <span class="stars">${stars3(r.k)}</span></div>
+      ${r.comment ? `<div class="rc">“${esc(r.comment)}”</div>` : ''}${r.tip ? `<div class="rt">💡 ${t('tip')}: ${esc(r.tip)}</div>` : ''}</div>`;
+  }
+  $('chMsgs').innerHTML = h; $('chMsgs').scrollTop = 1e6;
+  // azioni
+  const closed = isClosed(game.t); let a = '';
+  if (p.status === 'queue' && p.kind === 'in') a += RK.map(k => { const ok = rooms[k].status === 'free'; return `<button class="room" data-ch="in" data-r="${k}" ${ok && !closed ? '' : 'disabled'}>${RS(k)}${ok ? '' : rooms[k].status === 'occupied' ? ' · ' + t('occ') : ' · 🧹'}</button>`; }).join('');
+  if (p.status === 'queue' && p.kind === 'out') a += `<button class="primary" data-ch="out" ${closed ? 'disabled' : ''}>${t('coBtn', p.nights * S.price)}</button>`;
+  if (!c.rated && !c.evaluating && c.msgs.some(m => m.who === 'r')) a += `<button class="ghost" data-ch="end">${t('endConv')}</button>`;
+  if (c.rated) a += `<button data-ch="close">${t('close')}</button>`;
+  $('chActs').innerHTML = a;
+  const dis = c.busy || c.ended || c.rated || c.ex >= MAXEX;
+  $('chIn').disabled = dis; $('chSend').disabled = dis;
+  $('chIn').placeholder = t('typeHere'); $('chSend').textContent = t('send');
+}
+
+GL.forEach(g => DEFAULTS.langs[g.c] = { w:g.w, av:g.av });
+S.langs = JSON.parse(JSON.stringify(DEFAULTS.langs));
+// impostazioni salvate in questo browser (la chiave API solo se richiesto)
+function saveSettings() {
+  try { const c = JSON.parse(JSON.stringify(S)); if (!c.llm.remember) c.llm.keys = {}; localStorage.setItem('bnb-settings', JSON.stringify(c)); } catch (e) {}
+}
+(function loadSettings() {
+  try {
+    const raw = localStorage.getItem('bnb-settings'); if (!raw) return; const o = JSON.parse(raw);
+    S = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), o);
+    S.llm = Object.assign(JSON.parse(JSON.stringify(DEFAULTS.llm)), o.llm || {});
+    S.langs = Object.assign(JSON.parse(JSON.stringify(DEFAULTS.langs)), o.langs || {});
+  } catch (e) {}
+})();
+const PATIENCE = 150;   // minuti di gioco che un ospite è disposto ad aspettare al bancone
+const STATUS = {
+  free:     { col:'#3f9a5c' },
+  occupied: { col:'#4f86c6' },
+  dirty:    { col:'#c9483f' },
+  cleaning: { col:'#e0962e' }
+};
+const NAMES1 = ['Marco Rossi','Giulia Conti','Hans Müller','Sophie Martin','John Smith','Yuki Tanaka','Lucía García','Ana Silva','Pierre Dubois','Emma Johansson','Liam O’Brien','Sara Romano','Lukas Novák','Mei Chen','Olga Petrova','Ahmed Hassan','Chiara Ferri','Tom Becker','Inès Laurent','Kenji Sato'];
+const SURN = ['Bianchi','Esposito','Moreau','Kowalski','Andersen','Ricci','Fernández','Schmidt','Dubois','Walker','Rossi','Novak'];
+const PAIRS = [['Anna','Luca'],['Mia','Jonas'],['Nina','Paolo'],['Elena','Diego'],['Laura','Ken'],['Zoe','Max'],['Ida','Leo'],['Clara','Hugo'],['Sofia','Mateo'],['Lena','Finn']];
+
+let game, rooms, parties, queue, logs, maid, pid;
+function inWin(t, a, b) { const h = mod(t) / 60; if (a === b) return false; return a < b ? (h >= a && h < b) : (h >= a || h < b); }
+const isClosed = t => inWin(t, S.closedFrom, S.closedTo);
+const maidOnDuty = t => S.maidFrom === S.maidTo ? true : inWin(t, S.maidFrom, S.maidTo);
+function nextOpen(t) { if (!isClosed(t)) return t; const delta = (S.closedTo*60 - mod(t) + DAYM) % DAYM; return t + delta + rnd(5, 35); }
+function randInWin(dayStart, a, b) { const len = ((b - a + 24) % 24) || 24; return dayStart + a*60 + Math.random() * len * 60; }
+const dayStart = d => (d - 1) * DAYM;
+
+function resetGame() {
+  walkers.forEach(w => { if (w !== maidW) { people.remove(w.g); } });
+  walkers.clear(); walkers.add(maidW);
+  game = { t: 7*60, speed:1, running:false, money:0, rep:4.0, served:0, lost:0, lastDay:0, hearts:0, reviews:0 };
+  chatPid = null; if ($('chat')) renderChat();
+  rooms = {}; RK.forEach(k => rooms[k] = { status:'free', guest:null, dirtySince:0 });
+  parties = []; queue = []; logs = []; pid = 1;
+  maid = { state:'off', room:null, progress:0, last:null };
+  maidG.visible = false; maidG.position.copy(V(MAID_BASE));
+  // Ospiti già presenti all'inizio
+  seedGuest('r2', -1, 2);   // parte oggi
+  seedGuest('r3', 0, 3);   // parte fra due giorni
+  addLog('L_start');
+  syncAll();
+}
+function newParty(arrDay) {
+  const size = Math.random() < 0.6 ? 2 : 1, id_ = guestIdentity(size);
+  return { id:pid++, name:id_.name, lang:id_.lang, speak:id_.speak, conv:null, askAt:0, sit:0, size, nights:rint(1,7), arrDay, status:'scheduled', kind:'in', waited:0, room:null, arriveAt:0, departAt:0 };
+}
+function buildPartyModel(p) {
+  const g = new THREE.Group(), members = [];
+  for (let i = 0; i < p.size; i++) { const m = person(); m.position.x = p.size === 2 ? (i ? 0.24 : -0.24) : 0; g.add(m); members.push(m); }
+  const suit = new THREE.Group(); g.add(suit);
+  const sx = p.size === 2 ? 0.58 : 0.36;
+  box(suit, 0.3, 0.44, 0.18, pick([0x2f6f8f, 0xb8413a, 0x3d3d3d, 0x6b8e4e, 0xe0962e]), sx, 0.02, -0.15);
+  cyl(suit, 0.012, 0.012, 0.4, 0x222222, sx, 0.46, -0.15, 6);
+  const tag = makeTag('Check-in', '#3f9a5c'); tag.position.y = 2.2; tag.visible = false; g.add(tag);
+  people.add(g);
+  p.g = g; p.suit = suit; p.tag = tag; p.w = makeWalker(g, members);
+}
+function seedGuest(k, arrDay, nights) {
+  const p = newParty(arrDay); p.nights = nights; p.status = 'inRoom'; p.room = k;
+  buildPartyModel(p); p.g.position.copy(V(RM[k].spot)); p.g.rotation.y = p.w.heading = RM[k].face; p.suit.visible = false;
+  p.departAt = nextOpen(randInWin(dayStart(arrDay + nights), S.coFrom, S.coTo));
+  rooms[k].status = 'occupied'; rooms[k].guest = p.id; parties.push(p);
+}
+function generateDay(d) {
+  const depToday = parties.filter(p => p.status === 'inRoom' && dayOf(p.departAt) === d).length;
+  const freeTonight = RK.filter(k => rooms[k].status !== 'occupied').length + depToday;
+  const base = game.rep >= 4.5 ? 3 : game.rep >= 3.5 ? 2 : 1;
+  let n = rint(Math.max(1, base - 1), base + 1);
+  n = Math.min(n, freeTonight + (Math.random() < 0.15 ? 1 : 0));
+  for (let i = 0; i < n; i++) {
+    const p = newParty(d);
+    p.arriveAt = nextOpen(Math.max(game.t + rnd(10, 40), randInWin(dayStart(d), S.ciFrom, S.ciTo)));
+    parties.push(p);
+  }
+  addLog('L_day', [d, n, depToday]);
+  // richieste durante i giorni intermedi del soggiorno (solo in modalità LLM)
+  parties.forEach(p => {
+    if (p.status === 'inRoom' && p.arrDay < d && dayOf(p.departAt) > d && Math.random() * 100 < S.askPct) {
+      p.askAt = nextOpen(randInWin(dayStart(d), 9, 19)); p.sit = rint(0, SITS.length - 1);
+    } else p.askAt = 0;
+  });
+}
+function rescheduleAll() {
+  parties.forEach(p => {
+    if (p.status === 'scheduled') p.arriveAt = nextOpen(Math.max(game.t + rnd(5, 30), randInWin(dayStart(p.arrDay), S.ciFrom, S.ciTo)));
+    if (p.status === 'inRoom' && p.departAt > game.t) p.departAt = nextOpen(Math.max(game.t + 10, randInWin(dayStart(dayOf(p.departAt)), S.coFrom, S.coTo)));
+  });
+}
+// --- percorsi
+const slotPos = i => SLOTS[Math.min(i, SLOTS.length - 1)];
+const roomChain = k => [RM[k].spot, RM[k].inside, RM[k].door, RM[k].corr];
+function reflowQueue() {
+  queue.forEach((id, i) => {
+    const p = byId(id), s = slotPos(i);
+    if (p.status === 'queue') {
+      if (p.g.position.distanceTo(V(s)) > 0.05) walkTo(p.w, [s], () => { p.w.heading = -Math.PI/2; });
+    } else if (p.w.path.length) p.w.path[p.w.path.length - 1] = V(s);
+  });
+}
+const byId = id => parties.find(p => p.id === id);
+function joinQueue(p, kind) {
+  p.kind = kind; p.waited = 0; p.conv = null; queue.push(p.id);
+  const i = queue.length - 1, s = slotPos(i);
+  if (kind === 'in') { p.status = 'arriving'; walkTo(p.w, [ENTR_OUT, ENTR_IN, s], () => atDesk(p)); }
+  else { p.status = 'toDesk'; walkTo(p.w, [...roomChain(p.room).slice(1), ...DESK_HALL.slice().reverse(), s], () => atDesk(p)); }
+}
+function atDesk(p) {
+  p.status = 'queue'; p.w.heading = -Math.PI/2; p.waited = 0;
+  p.tag.visible = true; retagParty(p);
+  if (p.kind === 'ask') { toast(t('T_ask', nameStr(p.name))); addLog('L_askDesk', [p.name]); }
+  else { toast(t('T_atDesk', nameStr(p.name), t(p.kind === 'in' ? 'ci' : 'co'))); addLog('L_atDesk', [p.name, { lk: p.kind === 'in' ? 'ci' : 'co' }]); }
+  markDirty();
+}
+function removeFromQueue(p) { const i = queue.indexOf(p.id); if (i >= 0) queue.splice(i, 1); reflowQueue(); }
+function leave(p) {
+  removeFromQueue(p); p.tag.visible = false; p.suit.visible = true; p.status = 'leaving';
+  walkTo(p.w, [ENTR_IN, ENTR_OUT, SPAWN], () => { people.remove(p.g); walkers.delete(p.w); p.status = 'gone'; });
+  markDirty();
+}
+function retagParty(p) {
+  if (p.kind === 'ask') retag(p.tag, '❓ ' + t('ask'), '#7b5ea7');
+  else retag(p.tag, t(p.kind === 'in' ? 'ci' : 'co'), p.kind === 'in' ? '#3f9a5c' : '#4f86c6');
+}
+// ogni recensione (1–5) sposta la media delle recensioni del B&B
+function addReview(score) { game.reviews++; game.rep = Math.max(1, Math.min(5, game.rep + (score - game.rep) * 0.25)); }
+function waitRep(p) { addReview(p.waited < 20 ? 5 : p.waited < 75 ? 4 : 3); }
+
+// --- azioni del receptionist
+function doCheckIn(id, k) {
+  const p = byId(id); if (!p || p.status !== 'queue' || isClosed(game.t) || rooms[k].status !== 'free') return;
+  rooms[k].status = 'occupied'; rooms[k].guest = p.id; p.room = k;
+  p.departAt = nextOpen(Math.max(game.t + 180, randInWin(dayStart(p.arrDay + p.nights), S.coFrom, S.coTo)));
+  if (S.llm.on) llmAction(p, `the receptionist completed your check-in and handed you the key of ${roomEN(k)}`, t('noteCheckin', RS(k))); else waitRep(p);
+  removeFromQueue(p); p.tag.visible = false; p.status = 'toRoom';
+  walkTo(p.w, [...DESK_HALL, ...roomChain(k).slice().reverse()], () => {
+    p.status = 'inRoom'; p.suit.visible = false; p.w.heading = RM[k].face; syncRoom(k); markDirty();
+  });
+  addLog('L_in', [p.name, { room:k }, { nights:p.nights }, dayOf(p.departAt)], 'good');
+  syncRoom(k); markDirty();
+}
+function doCheckOut(id, auto = false) {
+  const p = byId(id); if (!p || p.status !== 'queue' || (!auto && isClosed(game.t))) return;
+  const bill = p.nights * S.price; game.money += bill; game.served++;
+  const r = rooms[p.room]; r.status = 'dirty'; r.guest = null; r.dirtySince = game.t;
+  if (auto) { addReview(2); addLog('L_auto', [p.name, bill], 'bad'); }
+  else {
+    if (S.llm.on) llmAction(p, `the receptionist completed your check-out; you paid ${bill} €`, t('noteCheckout', bill)); else waitRep(p);
+    addLog('L_out', [p.name, bill, { room:p.room }], 'good');
+  }
+  syncRoom(p.room); leave(p);
+}
+function doRefuse(id) {
+  const p = byId(id); if (!p || p.status !== 'queue') return;
+  const anyFree = RK.some(k => rooms[k].status !== 'occupied');
+  addReview(anyFree ? 2 : 3); game.lost++;
+  addLog('L_refused', [p.name], 'bad'); leave(p);
+}
+
+// --- avanzamento del tempo
+function tick(dt) {
+  game.t += dt;
+  const d = dayOf(game.t);
+  if (d > game.lastDay) { game.lastDay = d; parties = parties.filter(p => p.status !== 'gone'); generateDay(d); markDirty(); }
+  const closed = isClosed(game.t);
+  parties.forEach(p => {
+    if (p.status === 'scheduled' && game.t >= p.arriveAt) {
+      if (closed) { p.arriveAt = nextOpen(game.t); return; }
+      buildPartyModel(p); p.g.position.copy(V(SPAWN)); p.g.rotation.y = p.w.heading = Math.PI;
+      joinQueue(p, 'in'); addLog('L_arriving', [p.name, { people:p.size }]); markDirty();
+    } else if (p.status === 'inRoom' && p.askAt && game.t >= p.askAt && dayOf(p.departAt) > dayOf(game.t)) {
+      p.askAt = 0;
+      if (!S.llm.on || closed) return;
+      joinQueue(p, 'ask'); markDirty();
+    } else if (p.status === 'inRoom' && game.t >= p.departAt) {
+      if (closed) { p.departAt = nextOpen(game.t); return; }
+      p.suit.visible = true; joinQueue(p, 'out'); syncRoom(p.room);
+      addLog('L_leavesRoom', [p.name, { room:p.room }]); markDirty();
+    } else if (p.status === 'queue' && !closed && !convActive(p)) {
+      p.waited += dt;
+      if (p.waited >= PATIENCE) {
+        if (p.kind === 'ask') { addReview(2); addLog('L_askGone', [p.name], 'bad'); if (chatPid === p.id) closeChat(); finishAsk(p); }
+        else if (p.kind === 'in') { addReview(1); game.lost++; addLog('L_angry', [p.name], 'bad'); toast(t('T_angry', nameStr(p.name))); leave(p); }
+        else doCheckOut(p.id, true);
+      }
+    }
+  });
+  walkers.forEach(w => stepWalker(w, dt));
+  tickMaid(dt);
+}
+function tickMaid(dt) {
+  const on = maidOnDuty(game.t);
+  if (maid.state === 'off') {
+    if (on) { maid.state = 'idle'; maid.last = null; maidG.visible = true; maidG.position.copy(V(MAID_BASE)); maidW.heading = -Math.PI/2; addLog('L_maidOn'); markDirty(); }
+    return;
+  }
+  if (maid.state === 'idle') {
+    const next = on && RK.filter(k => rooms[k].status === 'dirty').sort((a, b) => rooms[a].dirtySince - rooms[b].dirtySince)[0];
+    const exitPrev = maid.last ? [RM[maid.last].inside, RM[maid.last].door, RM[maid.last].corr] : [];
+    if (next) {
+      maid.state = 'walking'; maid.room = next;
+      walkTo(maidW, [...exitPrev, RM[next].corr, RM[next].door, RM[next].inside, RM[next].maid], () => {
+        maid.state = 'cleaning'; maid.progress = 0; rooms[next].status = 'cleaning'; maidW.heading = RM[next].face; syncRoom(next); markDirty();
+      });
+      maid.last = null; markDirty();
+    } else if (maid.last) {
+      maid.state = 'returning';
+      walkTo(maidW, [...exitPrev, MAID_BASE], () => { maid.state = 'idle'; maidW.heading = -Math.PI/2; markDirty(); });
+      maid.last = null; markDirty();
+    } else if (!on) { maid.state = 'off'; maidG.visible = false; addLog('L_maidOff'); markDirty(); }
+    return;
+  }
+  if (maid.state === 'cleaning') {
+    maid.progress += dt; const k = maid.room;
+    if (maid.progress >= S.cleanMin) {
+      rooms[k].status = 'free'; syncRoom(k);
+      addLog('L_clean', [{ room:k }], 'good'); toast(t('T_clean', RS(k)));
+      maid.state = 'idle'; maid.room = null; maid.last = k; markDirty();
+    }
+  }
+}
+
+// --- sincronizza grafica di camere ed etichette
+function syncRoom(k) {
+  const r = rooms[k], v = roomVis[k];
+  const guest = r.guest ? byId(r.guest) : null;
+  const messy = r.status === 'dirty' || r.status === 'cleaning';
+  v.tidy.visible = !messy; v.messy.visible = messy;
+  v.suit.visible = !!(r.status === 'occupied' && guest && (guest.status === 'inRoom' || guest.kind === 'ask'));
+  v.cart.visible = r.status === 'cleaning';
+  let sub = t('st_'+r.status);
+  if (r.status === 'cleaning') sub = t('cleanPct', Math.floor(Math.min(1, maid.progress / S.cleanMin) * 10) * 10);
+  setLabel(k, RS(k), sub, STATUS[r.status].col);
+}
+function syncReception() {
+  const closed = isClosed(game.t);
+  me.visible = !closed; closedTag.visible = closed;
+  setLabel('reception', t('reception'), t(closed ? 'closed' : 'open'), closed ? '#2f3346' : '#3f9a5c');
+}
+function syncAll() { RK.forEach(syncRoom); syncReception(); setLabel('kitchen', t('kitchen'), '', '#000'); drawSign(); markDirty(); }
+
+/* =========================================================
+   INTERFACCIA
+   ========================================================= */
+const $ = id => document.getElementById(id);
+let dirty = true; const markDirty = () => dirty = true;
+function addLog(key, args = [], cls = '') { logs.unshift({ t: game ? game.t : 0, key, args, cls }); if (logs.length > 60) logs.pop(); markDirty(); }
+function toast(msg) {
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; $('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3800); while ($('toasts').children.length > 3) $('toasts').firstChild.remove();
+}
+function renderDesk() {
+  const closed = isClosed(game.t);
+  $('openPill').textContent = t(closed ? 'offDuty' : 'onDuty');
+  $('openPill').style.background = closed ? '#2f3346' : 'var(--ok)';
+  $('closed').innerHTML = closed ? `<div class="closedBox">${t('closedBox', hh(S.closedFrom), hh(S.closedTo))}<br><button data-act="skip">${t('skipTo', hh(S.closedTo))}</button></div>` : '';
+  // coda
+  const q = queue.map(byId);
+  if (!q.length) $('queue').innerHTML = `<div class="empty">${t('nobody')}</div>`;
+  else $('queue').innerHTML = q.map(p => {
+    const walking = p.status !== 'queue', nm = nameStr(p.name), bill = p.nights * S.price;
+    const bc = p.kind === 'in' ? 'var(--ok)' : p.kind === 'out' ? 'var(--blue)' : 'var(--accent)';
+    const head = `<div class="gTop"><span class="gName">${nm}</span><span class="badge" style="background:${bc}">${p.kind === 'ask' ? t('ask') : t(p.kind === 'in' ? 'ci' : 'co')}</span></div>`;
+    const meta = (p.kind === 'in'
+      ? `${t('people', p.size)} · ${NIGHTS(p.nights)} · ${bill} €`
+      : p.kind === 'out' ? `${RS(p.room)} · ${NIGHTS(p.nights)} · ${t('toPay', bill)}` : `${RS(p.room)} · ${t('people', p.size)}`)
+      + `</div><div class="gLang">${speakLabel(p)}${convActive(p) ? ' · ' + t('inChat') : ''}`;
+    if (walking) return `<div class="g ${p.kind} walking">${head}<div class="gMeta">${meta}</div><div class="gMeta">${t('walking')}</div></div>`;
+    let acts = S.llm.on && !(p.conv && p.conv.rated) ? `<button class="talk" data-act="talk" data-p="${p.id}">${t('talk')}</button>` : '';
+    if (p.kind === 'ask') {
+      // le richieste si gestiscono solo parlando
+    } else if (p.kind === 'in') {
+      acts +=
+      acts = RK.map(k => {
+        const st = rooms[k].status, ok = st === 'free';
+        return `<button class="room" data-act="in" data-p="${p.id}" data-r="${k}" ${ok && !closed ? '' : 'disabled'} title="${t('st_'+st)}">${RS(k)}${ok ? '' : st === 'occupied' ? ' · ' + t('occ') : ' · 🧹'}</button>`;
+      }).join('') + `<button class="ghost" data-act="refuse" data-p="${p.id}" ${closed ? 'disabled' : ''}>${t('refuse')}</button>`;
+    } else acts += `<button class="primary" data-act="out" data-p="${p.id}" ${closed ? 'disabled' : ''}>${t('coBtn', bill)}</button>`;
+    return `<div class="g ${p.kind}">${head}<div class="gMeta">${meta}</div><div class="bar"><i data-pat="${p.id}"></i></div><div class="acts">${acts}</div></div>`;
+  }).join('');
+  // camere
+  $('roomsList').innerHTML = RK.map(k => {
+    const r = rooms[k], g = r.guest ? byId(r.guest) : null;
+    let st = t('st_'+r.status);
+    if (r.status === 'occupied' && g) st = t('leaves', nameStr(g.name), dayOf(g.departAt));
+    if (r.status === 'dirty' && maid.room === k) st = t('dirtyComing');
+    return `<div class="rr" data-act="goto" data-r="${k}"><span class="dot" style="background:${STATUS[r.status].col}"></span><span class="nm">${RS(k)}</span><span class="st">${st}</span>${r.status === 'cleaning' ? `<div class="bar"><i data-cl="${k}"></i></div>` : ''}</div>`;
+  }).join('');
+  const mr = maid.room ? RS(maid.room) : '';
+  const ms = { off:t('m_off', hh(S.maidFrom), hh(S.maidTo)), idle:t('m_idle'), walking:t('m_walking', mr), cleaning:t('m_cleaning', mr), returning:t('m_returning') };
+  $('maidLine').textContent = `🧹 ${t('maid')}: ${ms[maid.state]}`;
+  // oggi
+  const d = dayOf(game.t);
+  const arr = parties.filter(p => p.status === 'scheduled' && p.arrDay <= d).sort((a, b) => a.arriveAt - b.arriveAt);
+  const dep = parties.filter(p => p.status === 'inRoom' && dayOf(p.departAt) === d).sort((a, b) => a.departAt - b.departAt);
+  let html = '';
+  html += arr.map(p => `<div><span>~${fmtT(p.arriveAt)}</span>${t('arr', nameStr(p.name), NIGHTS(p.nights))}</div>`).join('');
+  html += dep.map(p => `<div><span>~${fmtT(p.departAt)}</span>${t('dep', nameStr(p.name), RS(p.room))}</div>`).join('');
+  $('today').innerHTML = html || `<div style="color:var(--muted)">${t('noneToday')}</div>`;
+  $('log').innerHTML = logs.slice(0, 40).map(l => `<div class="${l.cls}"><span>${t('dS')}${dayOf(l.t)} ${fmtT(l.t)}</span>${tl(l.key, l.args)}</div>`).join('');
+  dirty = false;
+}
+function updateDynamic() {
+  $('clock').textContent = fmtT(game.t);
+  $('dayLbl').textContent = t('day', dayOf(game.t));
+  $('money').textContent = game.money.toLocaleString(LANGS[LI][2]) + ' €';
+  const r = game.rep, full = Math.round(r);
+  $('stars').textContent = '★'.repeat(full) + '☆'.repeat(5 - full); $('repN').textContent = r.toFixed(1);
+  $('hearts').textContent = '❤️ ' + game.hearts;
+  document.querySelectorAll('[data-pat]').forEach(el => {
+    const p = byId(+el.dataset.pat); if (!p) return; const f = Math.max(0, 1 - p.waited / PATIENCE);
+    el.style.width = (f * 100) + '%'; el.style.background = f > 0.5 ? 'var(--ok)' : f > 0.2 ? 'var(--warn)' : 'var(--bad)';
+  });
+  document.querySelectorAll('[data-cl]').forEach(el => el.style.width = Math.min(100, maid.progress / S.cleanMin * 100) + '%');
+}
+$('desk').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
+  const a = b.dataset.act;
+  if (a === 'in') doCheckIn(+b.dataset.p, b.dataset.r);
+  else if (a === 'out') doCheckOut(+b.dataset.p);
+  else if (a === 'refuse') doRefuse(+b.dataset.p);
+  else if (a === 'goto') flyTo(b.dataset.r);
+  else if (a === 'skip') skipClosed();
+  else if (a === 'talk') openChat(+b.dataset.p);
+});
+// pannello di conversazione
+$('chForm').addEventListener('submit', e => { e.preventDefault(); const v = $('chIn').value; if (v.trim()) { $('chIn').value = ''; sendReply(v); } });
+$('chIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('chForm').requestSubmit(); } });
+$('chMin').onclick = closeChat;
+$('chActs').addEventListener('click', e => {
+  const b = e.target.closest('[data-ch]'); if (!b || b.disabled) return; const p = byId(chatPid); if (!p) return;
+  const a = b.dataset.ch;
+  if (a === 'in') doCheckIn(p.id, b.dataset.r);
+  else if (a === 'out') doCheckOut(p.id);
+  else if (a === 'end') endConversation();
+  else if (a === 'close') closeChat();
+  renderChat(); markDirty();
+});
+$('chMsgs').addEventListener('click', e => {
+  const b = e.target.closest('[data-ch="retry"]'); if (!b) return; const p = byId(chatPid); if (!p || !p.conv) return;
+  const c = p.conv; c.err = null;
+  if (c.evalErr || c.ended) evaluate(p); else guestSpeak(p);
+});
+function skipClosed() {
+  let guard = 0;
+  while (isClosed(game.t) && guard++ < 3000) tick(0.5);
+  addLog('L_skip'); syncAll();
+}
+// velocità
+let prevSpeed = 1;
+function setSpeed(s) { game.speed = s; document.querySelectorAll('#speed button').forEach(b => b.classList.toggle('on', +b.dataset.s === s)); }
+$('speed').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSpeed(+b.dataset.s); });
+addEventListener('keydown', e => { if (e.code === 'Space' && !e.target.closest('input,select,textarea')) { e.preventDefault(); if (game.speed) { prevSpeed = game.speed; setSpeed(0); } else setSpeed(prevSpeed || 1); } });
+
+// impostazioni
+const hourSel = (id, v) => `<select id="${id}">${Array.from({ length:24 }, (_, h) => `<option value="${h}" ${h === v ? 'selected' : ''}>${hh(h)}</option>`).join('')}</select>`;
+let curTab = 'hours', formProv = null;
+function renderSettings() {
+  const ft = (a, b, x, y) => `<div>${t('from')} ${hourSel(a, x)} ${t('to')} ${hourSel(b, y)}</div>`;
+  const provOpts = Object.keys(PROV).map(k => `<option value="${k}" ${k === S.llm.prov ? 'selected' : ''}>${PROV[k].n()}</option>`).join('');
+  const lrows = GL.map(g => `<div class="lrow"><span>${g.f} ${langName(g.c)}</span><span><input type="number" min="0" max="100" step="1" data-lw="${g.c}" value="${S.langs[g.c].w}"></span>
+      <label><input type="checkbox" data-la="${g.c}" ${S.langs[g.c].av || g.c === 'en' ? 'checked' : ''} ${g.c === 'en' ? 'disabled' : ''}> ✓</label></div>`).join('');
+  $('setForm').innerHTML = `
+  <div class="pane" data-pane="hours">
+    <div class="setRow"><div>${t('s_un')}<small>${t('s_unS')}</small></div>${ft('sCf','sCt',S.closedFrom,S.closedTo)}</div>
+    <div class="setRow"><div>${t('s_ci')}<small>${t('s_ciS')}</small></div>${ft('sIf','sIt',S.ciFrom,S.ciTo)}</div>
+    <div class="setRow"><div>${t('s_co')}<small>${t('s_coS')}</small></div>${ft('sOf','sOt',S.coFrom,S.coTo)}</div>
+    <div class="setRow"><div>${t('s_maid')}</div>${ft('sMf','sMt',S.maidFrom,S.maidTo)}</div>
+    <div class="setRow"><div>${t('s_cl')}<small>${t('s_clS')}</small></div><div><input id="sCl" type="number" min="10" max="240" step="10" value="${S.cleanMin}"></div></div>
+    <div class="setRow"><div>${t('s_pr')}</div><div><input id="sPr" type="number" min="20" max="500" step="5" value="${S.price}"> €</div></div>
+  </div>
+  <div class="pane" data-pane="llm">
+    <label class="setRow"><div><b>${t('llmOn')}</b><small>${t('llmOnS')}</small></div><input type="checkbox" id="sLlm" ${S.llm.on ? 'checked' : ''}></label>
+    <div class="setRow"><div>${t('provider')}</div><select id="sProv" class="wide">${provOpts}</select></div>
+    <div class="setRow" id="rowKey"><div>${t('apiKey')}</div><input id="sKey" class="wide" type="password" autocomplete="off" spellcheck="false"></div>
+    <div class="setRow" id="rowModel"><div>${t('model')}</div><input id="sModel" class="wide" spellcheck="false"></div>
+    <div class="setRow" id="rowBase"><div>${t('baseUrl')}</div><input id="sBase" class="wide" spellcheck="false"></div>
+    <label class="setRow" id="rowRem"><div>${t('remember')}</div><input type="checkbox" id="sRem" ${S.llm.remember ? 'checked' : ''}></label>
+    <div class="setNote" id="provNote"></div>
+    <div class="setRow"><div><button type="button" class="setBtn" id="sTest">${t('test')}</button><span id="testRes"></span></div></div>
+    <label class="setRow"><div>${t('pauseChat')}</div><input type="checkbox" id="sPause" ${S.llm.pauseChat ? 'checked' : ''}></label>
+    <div class="setRow"><div>${t('askPct')}<small>${t('askPctS')}</small></div><div><input id="sAsk" type="number" min="0" max="100" step="5" value="${S.askPct}"> %</div></div>
+  </div>
+  <div class="pane" data-pane="langs">
+    <div class="lrow h"><span>${t('lang')}</span><span>${t('share')}</span><span>${t('avail')}</span></div>
+    ${lrows}
+    <div class="setNote"><b id="lTot"></b> · ${t('langsNote')}</div>
+    <div class="setRow"><div>${t('altTitle')}</div><div>${t('enFluent')} <input id="sEn" type="number" min="0" max="100" step="5" value="${S.enPct}"> % · ${t('enBasic')} <b id="sEnB">${100 - S.enPct}</b> %</div></div>
+  </div>`;
+  formProv = S.llm.prov; fillProv(); showTab(curTab); updLangTotal();
+  $('sProv').onchange = () => { stashProv(); formProv = $('sProv').value; fillProv(); };
+  $('sEn').oninput = () => $('sEnB').textContent = 100 - Math.max(0, Math.min(100, +$('sEn').value || 0));
+  document.querySelectorAll('[data-lw]').forEach(i => i.oninput = updLangTotal);
+  $('sTest').onclick = async () => {
+    stashProv(); const prov = formProv, el = $('testRes'); el.style.color = 'var(--muted)'; el.textContent = t('testing');
+    try { const txt = await llm('You are a connection test. Answer with the single word OK.', [{ role:'user', content:'Say OK.' }], prov); el.style.color = 'var(--ok)'; el.textContent = t('testOk') + (txt ? ` (“${txt.trim().slice(0, 30)}”)` : ''); }
+    catch (e) { el.style.color = 'var(--bad)'; el.textContent = '✖ ' + (e.message || e); }
+  };
+}
+function fillProv() {
+  const P = PROV[formProv], c = llmCfg(formProv);
+  $('rowKey').style.display = P.builtin || P.nokey ? 'none' : '';
+  $('rowModel').style.display = $('rowBase').style.display = P.builtin ? 'none' : '';
+  $('rowRem').style.display = P.builtin || P.nokey ? 'none' : '';
+  $('sKey').value = c.key; $('sModel').value = c.model; $('sModel').placeholder = P.model || 'model-name';
+  $('sBase').value = c.base; $('sBase').placeholder = P.base || 'https://…/v1';
+  $('provNote').textContent = P.builtin ? t('noteBuiltin') : (t('noteExternal') + (formProv === 'ollama' ? ' ' + t('noteOllama') : ''));
+}
+function stashProv() {
+  if (!formProv || !$('sKey')) return;
+  S.llm.keys[formProv] = $('sKey').value.trim(); S.llm.models[formProv] = $('sModel').value.trim(); S.llm.bases[formProv] = $('sBase').value.trim();
+}
+function updLangTotal() { let tot = 0; document.querySelectorAll('[data-lw]').forEach(i => tot += Math.max(0, +i.value || 0)); $('lTot').textContent = t('total', tot); }
+function showTab(tab) {
+  curTab = tab;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  document.querySelectorAll('#setForm .pane').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== tab));
+}
+$('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) showTab(b.dataset.tab); });
+function readSettings() {
+  stashProv();
+  Object.assign(S, { closedFrom:+$('sCf').value, closedTo:+$('sCt').value, ciFrom:+$('sIf').value, ciTo:+$('sIt').value, coFrom:+$('sOf').value, coTo:+$('sOt').value,
+        maidFrom:+$('sMf').value, maidTo:+$('sMt').value, cleanMin:Math.max(10, +$('sCl').value || 60), price:Math.max(20, +$('sPr').value || 80),
+        askPct:Math.max(0, Math.min(100, +$('sAsk').value || 0)), enPct:Math.max(0, Math.min(100, +$('sEn').value || 0)) });
+  S.llm.on = $('sLlm').checked; S.llm.prov = formProv; S.llm.remember = $('sRem').checked; S.llm.pauseChat = $('sPause').checked;
+  document.querySelectorAll('[data-lw]').forEach(i => S.langs[i.dataset.lw].w = Math.max(0, +i.value || 0));
+  document.querySelectorAll('[data-la]').forEach(i => S.langs[i.dataset.la].av = i.dataset.la === 'en' ? true : i.checked);
+  saveSettings();
+}
+let modalSpeed = 1, modalFirst = true;
+function openModal(first) {
+  modalFirst = first; modalSpeed = game.speed || 1; setSpeed(0); renderSettings();
+  $('mGo').textContent = t(first ? 'start' : 'save');
+  $('mReset').style.display = first ? 'none' : '';
+  $('modal').classList.remove('hidden');
+}
+$('gear').onclick = () => openModal(false);
+$('mGo').onclick = () => {
+  readSettings(); $('modal').classList.add('hidden');
+  if (game.running) addLog('L_hours');
+  game.running = true; rescheduleAll();
+  syncAll(); setSpeed(modalSpeed);
+};
+$('mReset').onclick = () => { readSettings(); resetGame(); game.running = true; $('modal').classList.add('hidden'); setSpeed(1); };
+
+// viste
+const VIEWS = { overview:{ pos:[15,30,21], tgt:[3.5,0,1] } };
+Object.entries(ROOMS).forEach(([k, r]) => {
+  const [x1,z1,x2,z2] = r.b, cx = (x1+x2)/2, cz = (z1+z2)/2;
+  if (k === 'corridor') VIEWS[k] = { pos:[-14, 9, 5], tgt:[0,0.5,0] };
+  else if (k === 'reception') VIEWS[k] = { pos:[-3.5, 8, 11.5], tgt:[-8.6, 0.6, 4.6] };
+  else VIEWS[k] = { pos:[cx + 1.5, 8.5, cz + (cz < 0 ? 7.5 : -7.5)], tgt:[cx, 0.6, cz] };
+});
+let tween = null;
+function flyTo(key) {
+  const v = VIEWS[key]; if (!v) return;
+  if (key !== 'overview' && roof.visible) setRoof(false);
+  tween = { t:0, p0:camera.position.clone(), t0:controls.target.clone(), p1:new THREE.Vector3(...v.pos), t1:new THREE.Vector3(...v.tgt) };
+  document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.k === key));
+  if (key === 'overview') hideInfo(); else showInfo(key);
+}
+const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+['overview','reception','kitchen','r1','r2','r3','r4','corridor'].forEach(k => {
+  const b = document.createElement('button'); b.dataset.k = k;
+  b.textContent = k === 'overview' ? t('overview') : RS(k);
+  if (k === 'overview') b.className = 'wide on';
+  b.onclick = () => flyTo(k); $('views').appendChild(b);
+});
+let infoKey = null;
+function showInfo(k) { infoKey = k; refreshInfo(); $('info').classList.remove('hidden'); }
+function refreshInfo() {
+  if (!infoKey) return; const r = ROOMS[infoKey], info = $('info');
+  info.querySelector('h2').textContent = RN(infoKey);
+  let s = '';
+  if (rooms[infoKey]) { const st = rooms[infoKey], g = st.guest ? byId(st.guest) : null; s = t('st_'+st.status) + (g ? ` · ${nameStr(g.name)}` : ''); info.querySelector('.s').style.color = STATUS[st.status].col; }
+  else if (infoKey === 'reception') { s = t(isClosed(game.t) ? 'closed' : 'open'); info.querySelector('.s').style.color = isClosed(game.t) ? '#2f3346' : 'var(--ok)'; }
+  info.querySelector('.s').textContent = s;
+  info.querySelector('.d').textContent = RD(infoKey);
+  info.querySelector('ul').innerHTML = RI(infoKey).map(i => `<li>${i}</li>`).join('');
+}
+function hideInfo() { infoKey = null; $('info').classList.add('hidden'); }
+$('infoClose').onclick = hideInfo;
+$('menuBtn').onclick = () => $('panel').classList.toggle('collapsed');
+
+// ---------- Cambio lingua ----------
+document.querySelectorAll('.langSel').forEach(sel => {
+  sel.innerHTML = LANGS.map(([c, n], i) => `<option value="${i}">${n}</option>`).join('');
+  sel.onchange = () => setLang(+sel.value);
+});
+function applyStatic() {
+  document.documentElement.lang = LANGS[LI][0];
+  document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+  document.querySelectorAll('[data-i-html]').forEach(el => el.innerHTML = t(el.dataset.iHtml));
+  document.querySelectorAll('[data-i-title]').forEach(el => el.title = t(el.dataset.iTitle));
+  document.querySelectorAll('[data-i-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.iAria)));
+  document.querySelectorAll('.langSel').forEach(sel => sel.value = LI);
+  document.querySelectorAll('#views button').forEach(b => b.textContent = b.dataset.k === 'overview' ? t('overview') : RS(b.dataset.k));
+}
+function setLang(i) {
+  LI = i; try { localStorage.setItem('bnb-lang', LANGS[i][0]); } catch (e) {}
+  applyStatic();
+  if (!$('modal').classList.contains('hidden')) {
+    // conserva i valori già scelti nel modulo
+    if ($('sCf')) readSettings();
+    renderSettings(); $('mGo').textContent = t(modalFirst ? 'start' : 'save');
+  }
+  retag(meTag, t('tagYou')); retag(closedTag, t('tagClosed'));
+  queue.map(byId).forEach(p => { if (p.status === 'queue') retagParty(p); });
+  syncAll(); refreshInfo(); updateDynamic(); renderChat();
+}
+(function initLang() {
+  let code = null; try { code = localStorage.getItem('bnb-lang'); } catch (e) {}
+  if (!code) code = (navigator.language || 'it').slice(0, 2).toLowerCase();
+  const i = LANGS.findIndex(l => l[0] === code); LI = i >= 0 ? i : 0;
+  applyStatic();
+  retag(meTag, t('tagYou')); retag(closedTag, t('tagClosed'));
+})();
+if (innerWidth < 1180) $('panel').classList.add('collapsed');
+
+const tRoof = $('tRoof');
+function setRoof(v) { roof.visible = v; tRoof.checked = v; }
+tRoof.onchange = e => setRoof(e.target.checked);
+function setLow(low) {
+  $('tLow').checked = low; wallsG.scale.y = low ? 0.3 : 1;
+  upperParts.forEach(p => p.visible = !low); decor.visible = !low; if (low) setRoof(false);
+}
+$('tLow').onchange = e => setLow(e.target.checked);
+tRoof.addEventListener('change', e => { if (e.target.checked) setLow(false); });
+setLow(true);
+
+// ---------- Controllo della telecamera: tastiera, pulsanti, modalità di trascinamento ----------
+controls.screenSpacePanning = false;
+controls.panSpeed = 1.1;
+const camHeld = new Set();
+const KEYMAP = { KeyW:'fwd', ArrowUp:'fwd', KeyS:'back', ArrowDown:'back', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right',
+  KeyQ:'rotL', KeyE:'rotR', KeyR:'in', Equal:'in', NumpadAdd:'in', KeyF:'out', Minus:'out', NumpadSubtract:'out', KeyZ:'up', KeyX:'down' };
+addEventListener('keydown', e => { if (e.target.closest && e.target.closest('input,select,textarea')) return; const a = KEYMAP[e.code]; if (a) { camHeld.add(a); e.preventDefault(); } });
+addEventListener('keyup', e => { const a = KEYMAP[e.code]; if (a) camHeld.delete(a); });
+addEventListener('blur', () => camHeld.clear());
+document.querySelectorAll('#camPad [data-cam]').forEach(b => {
+  const a = b.dataset.cam;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); camHeld.add(a); b.classList.add('hold'); b.setPointerCapture(e.pointerId); });
+  const up = () => { camHeld.delete(a); b.classList.remove('hold'); };
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+});
+function setDragMode(pan) {
+  $('mPan').classList.toggle('on', pan); $('mRot').classList.toggle('on', !pan);
+  controls.mouseButtons = pan ? { LEFT:THREE.MOUSE.PAN, MIDDLE:THREE.MOUSE.DOLLY, RIGHT:THREE.MOUSE.ROTATE }
+                              : { LEFT:THREE.MOUSE.ROTATE, MIDDLE:THREE.MOUSE.DOLLY, RIGHT:THREE.MOUSE.PAN };
+  controls.touches = pan ? { ONE:THREE.TOUCH.PAN, TWO:THREE.TOUCH.DOLLY_ROTATE } : { ONE:THREE.TOUCH.ROTATE, TWO:THREE.TOUCH.DOLLY_PAN };
+}
+$('mRot').onclick = () => setDragMode(false);
+$('mPan').onclick = () => setDragMode(true);
+setDragMode(false);
+const UPV = new THREE.Vector3(0, 1, 0);
+function moveCamera(dt) {
+  if (!camHeld.size) return;
+  tween = null;
+  const off = camera.position.clone().sub(controls.target), dist = off.length();
+  const fwd = off.clone().multiplyScalar(-1); fwd.y = 0; fwd.normalize();
+  const right = new THREE.Vector3().crossVectors(fwd, UPV).normalize();
+  const mv = new THREE.Vector3(), sp = Math.max(4, dist * 0.9) * dt;
+  if (camHeld.has('fwd')) mv.addScaledVector(fwd, sp);
+  if (camHeld.has('back')) mv.addScaledVector(fwd, -sp);
+  if (camHeld.has('right')) mv.addScaledVector(right, sp);
+  if (camHeld.has('left')) mv.addScaledVector(right, -sp);
+  if (mv.lengthSq()) {
+    const nt = controls.target.clone().add(mv);
+    nt.x = Math.max(-28, Math.min(28, nt.x)); nt.z = Math.max(-24, Math.min(26, nt.z));
+    mv.subVectors(nt, controls.target); controls.target.add(mv); camera.position.add(mv);
+  }
+  let rot = 0; if (camHeld.has('rotL')) rot += 1.4 * dt; if (camHeld.has('rotR')) rot -= 1.4 * dt;
+  if (rot) { off.applyAxisAngle(UPV, rot); camera.position.copy(controls.target).add(off); }
+  let z = 1; if (camHeld.has('in')) z *= Math.pow(0.35, dt); if (camHeld.has('out')) z *= Math.pow(1 / 0.35, dt);
+  let tilt = 0; if (camHeld.has('up')) tilt -= 0.9 * dt; if (camHeld.has('down')) tilt += 0.9 * dt;
+  if (z !== 1 || tilt) {
+    const o = camera.position.clone().sub(controls.target);
+    const sph = new THREE.Spherical().setFromVector3(o);
+    sph.radius = Math.max(controls.minDistance, Math.min(controls.maxDistance, sph.radius * z));
+    sph.phi = Math.max(0.12, Math.min(controls.maxPolarAngle, sph.phi + tilt));
+    camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
+  }
+}
+controls.addEventListener('start', () => { tween = null; });
+$('tLabels').onchange = e => labels.visible = e.target.checked;
+
+// hover e clic sulle stanze
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = $('tip');
+let hovered = null, downPos = null;
+function pickRoom(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((ev.clientX - r.left)/r.width)*2 - 1, -((ev.clientY - r.top)/r.height)*2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const objs = [...pickables, ...(labels.visible ? labels.children : [])];
+  if (roof.visible) objs.push(...roof.children);
+  const hit = ray.intersectObjects(objs, false)[0];
+  return hit && hit.object.userData.room ? hit.object.userData.room : null;
+}
+function setHover(k) {
+  if (hovered === k) return;
+  if (hovered) ROOMS[hovered].floor.material.emissive.setHex(0x000000);
+  hovered = k; if (k) ROOMS[k].floor.material.emissive.setHex(0x2a2418);
+  renderer.domElement.style.cursor = k ? 'pointer' : 'grab';
+}
+renderer.domElement.addEventListener('pointermove', ev => {
+  if (ev.pointerType !== 'mouse') return;
+  const k = pickRoom(ev); setHover(k);
+  if (k) { tip.textContent = RN(k) + (rooms[k] ? ' · ' + t('st_'+rooms[k].status) : ''); tip.style.left = ev.clientX + 14 + 'px'; tip.style.top = ev.clientY + 14 + 'px'; tip.style.opacity = 1; }
+  else tip.style.opacity = 0;
+});
+renderer.domElement.addEventListener('pointerdown', ev => downPos = [ev.clientX, ev.clientY]);
+renderer.domElement.addEventListener('pointerup', ev => {
+  if (!downPos || Math.hypot(ev.clientX - downPos[0], ev.clientY - downPos[1]) > 6) return;
+  const k = pickRoom(ev); if (k) flyTo(k);
+});
+renderer.domElement.addEventListener('pointerleave', () => { setHover(null); tip.style.opacity = 0; });
+
+// ---------- Giorno / notte dall'orologio ----------
+function nightLevel(h) { if (h < 5.5 || h >= 20.5) return 1; if (h < 7.5) return 1 - (h - 5.5)/2; if (h < 18.5) return 0; return (h - 18.5)/2; }
+const MOON = new THREE.Color(0x8fa6d9), SUNC = new THREE.Color(0xfff1d6);
+function applyDaylight() {
+  const h = mod(game.t) / 60, n = nightLevel(h);
+  scene.background.copy(DAY_BG).lerp(NIGHT_BG, n); scene.fog.color.copy(scene.background);
+  hemi.intensity = 0.5 - 0.38*n;
+  if (h >= 6 && h <= 20) { const a = (h - 6) / 14 * Math.PI; sun.position.set(30*Math.cos(a), 6 + 26*Math.sin(a), 12); }
+  else sun.position.set(-14, 26, 10);
+  sun.intensity = 0.9 - 0.8*n; sun.color.copy(SUNC).lerp(MOON, n);
+  const closed = isClosed(game.t);
+  RK.forEach(k => { const st = rooms[k].status; roomLights[k].intensity = n * (st === 'occupied' ? 1.0 : st === 'cleaning' ? 1.1 : 0.1); });
+  roomLights.reception.intensity = n * (closed ? 0.25 : 1.05);
+  roomLights.kitchen.intensity = n * 0.6; roomLights.corridor.intensity = n * 0.8;
+  porchLight.intensity = 1.2 * n;
+  lampMat.emissiveIntensity = 0.05 + 1.3*n;
+  glassMat.emissive.setRGB(0.35*n, 0.25*n, 0.1*n);
+}
+
+// ---------- Ciclo principale ----------
+const clock = new THREE.Clock();
+let uiTimer = 0, lastClosed = null, labelTimer = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dtR = Math.min(clock.getDelta(), 0.1);
+  const chatHold = S.llm.on && S.llm.pauseChat && chatPid && byId(chatPid) && byId(chatPid).conv && !byId(chatPid).conv.rated;
+  if (game.running && game.speed > 0 && !chatHold) {
+    let dtG = dtR * game.speed;           // 1 secondo reale = 1 minuto di gioco (a 1×)
+    while (dtG > 0) { const s = Math.min(dtG, 0.5); tick(s); dtG -= s; }
+  }
+  const c = isClosed(game.t);
+  if (c !== lastClosed) { const was = lastClosed; lastClosed = c; syncReception(); if (game.running && was !== null) addLog(c ? 'L_shiftEnd' : 'L_shiftStart'); markDirty(); }
+  walkers.forEach(w => animWalker(w, dtR));
+  if (tween) {
+    tween.t = Math.min(1, tween.t + dtR/1.3); const e = ease(tween.t);
+    camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.t0, tween.t1, e);
+    if (tween.t >= 1) tween = null;
+  }
+  moveCamera(dtR);
+  applyDaylight();
+  labels.children.forEach(l => { const k = Math.max(0.35, Math.min(1.25, camera.position.distanceTo(l.position) / 20)); l.scale.set(4*k, 1.375*k, 1); });
+  labelTimer += dtR; if (labelTimer > 0.5) { labelTimer = 0; if (maid.state === 'cleaning') syncRoom(maid.room); }
+  uiTimer += dtR;
+  if (dirty) { renderDesk(); refreshInfo(); }
+  if (uiTimer > 0.15) { uiTimer = 0; updateDynamic(); }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+resetGame();
+Promise.race([
+  Promise.all([document.fonts.load('600 50px "DM Sans"'), document.fonts.load('600 76px Fraunces')]),
+  new Promise(r => setTimeout(r, 2500))
+]).then(() => { labels.children.forEach(s => s.userData.key = ''); syncAll(); }).catch(() => {});
+openModal(true);
+animate();
+</script>
+</body>
+</html>
