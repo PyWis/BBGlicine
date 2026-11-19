@@ -170,6 +170,18 @@
   .lrow input[type=number]{width:62px;font:inherit;padding:3px 5px;border-radius:7px;border:1px solid var(--line)}
   .lrow label{display:flex;align-items:center;gap:6px;cursor:pointer}
   #modal .card{width:min(620px,100%)}
+  .bub.fb{align-self:flex-end;max-width:90%;font-size:12.5px;border-radius:10px;padding:6px 10px}
+  .bub.fb.ok{background:#e6f4ea;color:#2d6b40}
+  .bub.fb.bad{background:#fbeaea;color:#8a2f29}
+  .optH{flex-basis:100%;font-size:12px;color:var(--muted);margin-bottom:-1px}
+  .acts button.opt{flex-basis:100%;text-align:left;background:#fff;border-color:#cdbfe3;font-size:13.5px;line-height:1.35;padding:7px 10px}
+  .acts button.opt:not(:disabled):hover{background:#f3eefa;filter:none}
+  .acts button.opt b{color:var(--accent);margin-right:6px}
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .modes button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 6px;cursor:pointer;font-size:13.5px;font-weight:700;color:var(--ink)}
+  .modes button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #modeBox .sec{margin-top:4px}
+  #modeNote{min-height:3em}
   @media (max-width:860px){ #chat{left:0;right:0;top:0;bottom:0;width:auto;height:auto;transform:none;border-radius:0} .lrow{grid-template-columns:1fr 80px 90px} }
   @media (max-width:1180px){ .keys{display:none} #camPad{left:16px;transform:none} #info{bottom:110px} }
   @media (max-width:860px){
@@ -258,6 +270,7 @@
     <div class="mHead"><h2 data-i="welcome"></h2><select class="langSel" aria-label="Language"></select></div>
     <p data-i="intro"></p>
     <ul class="rules" data-i-html="rules"></ul>
+    <div id="modeBox"></div>
     <div class="tabs" id="tabs"><button data-tab="hours" class="on" data-i="tabHours"></button><button data-tab="llm" data-i="tabLLM"></button><button data-tab="langs" data-i="tabLangs"></button></div>
     <div id="setForm"></div>
     <div class="mBtns"><button id="mReset" data-i="reset"></button><button id="mGo"></button></div>
@@ -438,8 +451,6 @@ Object.assign(L, {
   tabHours:['Orari','Schedule','Horaires','Horarios','Zeiten'],
   tabLLM:['Modalità LLM','LLM mode','Mode LLM','Modo LLM','LLM-Modus'],
   tabLangs:['Lingue ospiti','Guest languages','Langues des clients','Idiomas de los huéspedes','Gästesprachen'],
-  llmOn:['Attiva la modalità LLM','Enable LLM mode','Activer le mode LLM','Activar el modo LLM','LLM-Modus aktivieren'],
-  llmOnS:['Gli ospiti parlano con te nella loro lingua tramite un modello di intelligenza artificiale','Guests talk to you in their own language through an AI model','Les clients vous parlent dans leur langue grâce à un modèle d’IA','Los huéspedes te hablan en su idioma mediante un modelo de IA','Gäste sprechen über ein KI-Modell in ihrer Sprache mit dir'],
   provider:['Fornitore','Provider','Fournisseur','Proveedor','Anbieter'],
   apiKey:['Chiave API','API key','Clé API','Clave API','API-Schlüssel'],
   model:['Modello','Model','Modèle','Modelo','Modell'],
@@ -989,7 +1000,7 @@ function drawSign() {
 /* =========================================================
    LOGICA DI GIOCO
    ========================================================= */
-const DEFAULTS = { closedFrom:23, closedTo:5, ciFrom:14, ciTo:21, coFrom:7, coTo:11, maidFrom:8, maidTo:18, cleanMin:60, price:80,
+const DEFAULTS = { closedFrom:23, closedTo:5, ciFrom:14, ciTo:21, coFrom:7, coTo:11, maidFrom:8, maidTo:18, cleanMin:60, price:80, mode:'quiz',
   llm:{ on:false, prov:'claude', keys:{}, models:{}, bases:{}, remember:false, pauseChat:true }, askPct:50, enPct:60, langs:{} };
 let S = JSON.parse(JSON.stringify(DEFAULTS));
 /* =========================================================
@@ -1026,6 +1037,7 @@ function langName(c) {
 }
 function speakLabel(p) {
   const g = GLx[p.lang];
+  if (S.mode === 'quiz' && p.speak === 'native' && !QL.includes(p.lang)) return `${g.f} ${t('enFluent')}`;
   return `${g.f} ${p.speak === 'native' ? langName(p.lang) : t(p.speak === 'en' ? 'enFluent' : 'enBasic')}`;
 }
 function pickGuestLang() {
@@ -1075,6 +1087,864 @@ const SITS = [
   'you want to know about local events tonight and where to buy typical local products'
 ];
 const MAXEX = 6;
+
+/* =========================================================
+   MODALITÀ «SENZA LLM»: DIALOGHI A SCELTA MULTIPLA
+   Ogni dialogo: [battuta, battuta, …, frase finale dell'ospite]
+   Ogni battuta: [ospite, risposta corretta e cortese, risposta corretta ma scortese,
+                  risposta cortese ma con un errore, correzione dell'errore]
+   Segnaposto: {a|b} = singolare | coppia;  {who} {n} {bill} {pr} {room} {co}
+   ========================================================= */
+const QL = ['it','en','fr','es','de'];        // lingue con dialoghi scritti (stesso ordine di LANGS)
+const QSITS = [0, 1, 2, 3, 4, 9];             // situazioni di SITS disponibili come dialogo scritto
+const QD = {
+en: {
+  in1: [
+    ["Hello! {I have|We have} a reservation under the name {who}, for {n}.",
+     "Good afternoon and welcome! Yes, I have your booking here. May I see a passport or ID, please?",
+     "Name? … OK. Passport.",
+     "Good afternoon and welcome! Yes, I has your booking here. May I see a passport or ID, please?",
+     "I has → I have"],
+    ["Here {it is|they are}. What time is breakfast?",
+     "Thank you. Breakfast is served from 7:30 to 10:30 in the shared kitchen, just down the corridor.",
+     "7:30 to 10:30. It’s written on the wall.",
+     "Thank you. The breakfast are served from 7:30 to 10:30 in the shared kitchen, just down the corridor.",
+     "The breakfast are → Breakfast is"],
+    ["Perfect. And is there Wi-Fi?",
+     "Of course, it’s free. The network is “Glicine” and the password is on your key card. Enjoy your stay!",
+     "Yes. Password on the card.",
+     "Of course, it’s free. The network is “Glicine” and the password is in your key card. Enjoy your stay!",
+     "in your key card → on your key card"],
+    "Wonderful, thank you so much!"
+  ],
+  in2: [
+    ["Good evening! Sorry we’re late. {I booked|We booked} {n} under the name {who}.",
+     "Good evening, no problem at all! Your booking is confirmed: {n}, {bill} € in total.",
+     "You’re late. {n}, {bill} €.",
+     "Good evening, no problem at all! Your booking is confirm: {n}, {bill} € in total.",
+     "is confirm → is confirmed"],
+    ["{I came|We came} by car. Where can {I|we} park?",
+     "There is free parking right behind the building. You can leave the car there for your whole stay.",
+     "Find a place in the street.",
+     "There is free parking right behind the building. You can leaving the car there for your whole stay.",
+     "can leaving → can leave"],
+    ["Great. Can you recommend a place for dinner nearby?",
+     "Certainly! Trattoria da Rosa is a five-minute walk away and the homemade pasta is excellent. Shall I book a table for you?",
+     "There are lots of restaurants. Look on the internet.",
+     "Certainly! Trattoria da Rosa is five minutes walking from here and the homemade pasta is excellent. Shall I book a table for you?",
+     "five minutes walking → a five-minute walk"],
+    "That sounds perfect, thank you!"
+  ],
+  out1: [
+    ["Good morning! {I’d|We’d} like to check out, please. Here is the key.",
+     "Good morning! Thank you. I hope you enjoyed your stay in {room}.",
+     "Leave the key on the desk.",
+     "Good morning! Thank you. Did you enjoyed your stay in {room}?",
+     "Did you enjoyed → Did you enjoy"],
+    ["It was lovely, thank you. How much do {I|we} owe you?",
+     "That’s {n} at {pr} € per night, so {bill} € in total. You can pay by card or in cash.",
+     "{bill} €.",
+     "That’s {n} at {pr} € for night, so {bill} € in total. You can pay by card or in cash.",
+     "for night → per night"],
+    ["By card, please. Here you are.",
+     "Thank you, here is your receipt. Have a safe journey, and we hope to see you again!",
+     "Done. Bye.",
+     "Thank you, here is your receipt. Have a safe travel, and we hope to see you again!",
+     "a safe travel → a safe journey"],
+    "Thank you for everything. Goodbye!"
+  ],
+  out2: [
+    ["Hi! {I’m|We’re} checking out today. Could {I|we} leave {my|our} luggage here until this afternoon?",
+     "Of course! You can leave it here behind the desk for as long as you need. It’s free of charge.",
+     "OK, but put it in the corner yourself.",
+     "Of course! You can leave your luggages here behind the desk for as long as you need. It’s free of charge.",
+     "luggages → luggage"],
+    ["Thank you. And could you call a taxi for {me|us} at 3 pm?",
+     "Certainly, I’ll book a taxi for 3 pm. It will wait for you at the garden gate.",
+     "Call it yourself, the number is on the wall.",
+     "Certainly, I’ll book a taxi for 3 pm. It will wait you at the garden gate.",
+     "wait you → wait for you"],
+    ["Wonderful. So, how much is it in total?",
+     "{n} at {pr} € per night: {bill} € in total. Thank you so much for staying with us!",
+     "{bill} €. Pay now.",
+     "{n} at {pr} € per night: {bill} € in total. Thank you so much for staying by us!",
+     "staying by us → staying with us"],
+    "Thank you! It was a lovely stay."
+  ],
+  s0: [
+    ["Hi! Could you recommend a good restaurant for dinner tonight?",
+     "Of course! I suggest Osteria del Borgo: it’s a ten-minute walk and they serve typical local dishes.",
+     "There’s an app for that.",
+     "Of course! I suggest Osteria del Borgo: it’s a ten-minute walk and they serve typical locals dishes.",
+     "locals dishes → local dishes"],
+    ["Sounds great! Do {I|we} need to book?",
+     "It’s a good idea, it gets busy in the evening. Would you like me to book a table for 8 pm?",
+     "Probably. Call them.",
+     "It’s a good idea, it gets busy at evening. Would you like me to book a table for 8 pm?",
+     "at evening → in the evening"],
+    "Yes please, that would be perfect. Thank you!"
+  ],
+  s1: [
+    ["Excuse me, the Wi-Fi in {my|our} room doesn’t work. {I|We} can’t connect.",
+     "I’m sorry about that! Let me check. The network is “Glicine” and the password is glicine2026.",
+     "It works for everyone else.",
+     "I’m sorry about that! Let me check. The network calls “Glicine” and the password is glicine2026.",
+     "The network calls → The network is called"],
+    ["Still nothing… the signal is very weak in the room.",
+     "Then I’ll restart the router right now. If it’s still slow, the signal is very strong here in the lounge.",
+     "Then use your mobile data.",
+     "Then I restart the router right now. If it’s still slow, the signal is very strong here in the lounge.",
+     "I restart → I’ll restart"],
+    "Oh, now it works! Thanks a lot."
+  ],
+  s2: [
+    ["Hello! Could {I|we} have some extra towels, please?",
+     "Of course! How many would you like? I’ll bring them to your room in a few minutes.",
+     "The housekeeper will come tomorrow.",
+     "Of course! How much towels would you like? I’ll bring them to your room in a few minutes.",
+     "How much towels → How many towels"],
+    ["Two, please. And an extra pillow too, if possible.",
+     "No problem at all, I’ll bring you two towels and a pillow straight away.",
+     "Only one pillow per bed. Sorry.",
+     "No problem at all, I bring you two towels and a pillow straight away.",
+     "I bring you → I’ll bring you"],
+    "Thank you, that’s very kind!"
+  ],
+  s3: [
+    ["Good morning. {I|We} couldn’t sleep last night: there was a lot of noise from the street.",
+     "I’m so sorry to hear that. Would you like me to move you to a quieter room on the garden side?",
+     "It’s the town centre. It’s normal.",
+     "I’m so sorry to hear that. Would you like that I move you to a quieter room on the garden side?",
+     "Would you like that I move you → Would you like me to move you"],
+    ["Yes, that would be great, if it’s not a problem.",
+     "Not at all. I’ll prepare the room for this afternoon, and I’ll also leave you some earplugs.",
+     "Fine. Move your things yourself after 2 pm.",
+     "Not at all. I’ll prepare the room for this afternoon, and I’ll leave you also some earplugs.",
+     "I’ll leave you also → I’ll also leave you"],
+    "Thank you so much, that’s very kind of you."
+  ],
+  s4: [
+    ["Hi! {My|Our} train leaves in the evening. Could {I|we} check out a bit later tomorrow?",
+     "Of course, let me check… yes, the room is free tomorrow, so you can stay until 1 pm at no extra cost.",
+     "Check-out is at {co}. Rules are rules.",
+     "Of course, let me check… yes, the room is free tomorrow, so you can stay until the 1 pm at no extra cost.",
+     "until the 1 pm → until 1 pm"],
+    ["Perfect! And after that, can {I|we} still use the kitchen?",
+     "Yes, absolutely. You’re welcome to use the kitchen and the garden until your train leaves.",
+     "No. After check-out you leave.",
+     "Yes, absolutely. You’re welcome to use the kitchen and the garden until your train leave.",
+     "your train leave → your train leaves"],
+    "Great, thank you very much!"
+  ],
+  s9: [
+    ["I’m so sorry… {I think I’ve|we think we’ve} lost {my|our} room key.",
+     "Don’t worry, it happens! Here’s the spare key for {room}.",
+     "That’s a problem. A new key costs 20 €.",
+     "Don’t worry, it happen! Here’s the spare key for {room}.",
+     "it happen → it happens"],
+    ["Thank you! Will {I|we} have to pay for the lost one?",
+     "No, don’t worry. If you find it, just bring it back to the desk.",
+     "We’ll see. Look for it carefully.",
+     "No, don’t worry. If you find it, just bring back it to the desk.",
+     "bring back it → bring it back"],
+    "What a relief! Thank you so much."
+  ]
+},
+it: {
+  in1: [
+    ["Buongiorno! {Ho|Abbiamo} una prenotazione a nome {who}, per {n}.",
+     "Buongiorno! Sì, ho qui la {sua|vostra} prenotazione. {Mi può|Mi potete} mostrare un documento d’identità, per favore?",
+     "Nome? … Va bene. Documento.",
+     "Buongiorno! Sì, ho qui la {sua|vostra} prenotazione. {Mi può|Mi potete} mostrare un documenti d’identità, per favore?",
+     "un documenti → un documento"],
+    ["Ecco qui. A che ora è la colazione?",
+     "Grazie. La colazione è servita dalle 7:30 alle 10:30 nella cucina comune, in fondo al corridoio.",
+     "Dalle 7:30 alle 10:30. C’è scritto sul muro.",
+     "Grazie. La colazione è servito dalle 7:30 alle 10:30 nella cucina comune, in fondo al corridoio.",
+     "è servito → è servita"],
+    ["Perfetto. E c’è il Wi-Fi?",
+     "Certo, è gratuito. La rete si chiama «Glicine» e la password è sulla tessera della chiave. Buon soggiorno!",
+     "Sì. Password sulla tessera.",
+     "Certo, è gratuito. La rete si chiama «Glicine» e la password è sulla tessera della chiave. Buono soggiorno!",
+     "Buono soggiorno → Buon soggiorno"],
+    "Benissimo, grazie mille!"
+  ],
+  in2: [
+    ["Buonasera! Scusi il ritardo. {Ho|Abbiamo} prenotato {n} a nome {who}.",
+     "Buonasera, nessun problema! La prenotazione è confermata: {n}, {bill} € in totale.",
+     "È tardi. {n}, {bill} €.",
+     "Buonasera, nessuno problema! La prenotazione è confermata: {n}, {bill} € in totale.",
+     "nessuno problema → nessun problema"],
+    ["{Ho|Abbiamo} la macchina. Dove {posso|possiamo} parcheggiare?",
+     "C’è un parcheggio gratuito proprio dietro l’edificio. {Può|Potete} lasciare l’auto lì per tutto il soggiorno.",
+     "{Cerchi|Cercate} un posto in strada.",
+     "C’è un parcheggio gratuito proprio dietro l’edificio. {Può|Potete} lasciare l’auto lì per tutta il soggiorno.",
+     "tutta il soggiorno → tutto il soggiorno"],
+    ["Ottimo. {Mi|Ci} può consigliare un posto per cena qui vicino?",
+     "Certamente! La Trattoria da Rosa è a cinque minuti a piedi e la pasta fatta in casa è ottima. {Vuole|Volete} che prenoti un tavolo?",
+     "Ci sono tanti ristoranti. {Guardi|Guardate} su internet.",
+     "Certamente! La Trattoria da Rosa è a cinque minuti a piedi e la pasta fatta in casa è ottima. {Vuole|Volete} che prenoto un tavolo?",
+     "che prenoto → che prenoti"],
+    "Perfetto, grazie!"
+  ],
+  out1: [
+    ["Buongiorno! {Vorrei|Vorremmo} fare il check-out, per favore. Ecco la chiave.",
+     "Buongiorno! Grazie. Spero che il soggiorno nella {room} {le sia|vi sia} piaciuto.",
+     "{Lasci|Lasciate} la chiave sul bancone.",
+     "Buongiorno! Grazie. Spero che il soggiorno nella {room} {le è|vi è} piaciuto.",
+     "{le è|vi è} piaciuto → {le sia|vi sia} piaciuto"],
+    ["È stato molto bello, grazie. Quanto le {devo|dobbiamo}?",
+     "Sono {n} a {pr} € a notte, quindi {bill} € in totale. {Può|Potete} pagare con carta o in contanti.",
+     "{bill} €.",
+     "Sono {n} a {pr} € a notte, quindi {bill} € in totale. {Può|Potete} pagare a carta o in contanti.",
+     "a carta → con carta"],
+    ["Con carta, grazie. Ecco.",
+     "Grazie, ecco la ricevuta. Buon viaggio, e speriamo di {rivederla|rivedervi} presto!",
+     "Fatto. Arrivederci.",
+     "Grazie, ecco il ricevuto. Buon viaggio, e speriamo di {rivederla|rivedervi} presto!",
+     "il ricevuto → la ricevuta"],
+    "Grazie di tutto. Arrivederci!"
+  ],
+  out2: [
+    ["Salve! Oggi {parto|partiamo}. {Posso|Possiamo} lasciare qui i bagagli fino a questo pomeriggio?",
+     "Certo! {Può|Potete} lasciarli qui dietro il bancone finché {le|vi} servono. È gratuito.",
+     "Va bene, ma nell’angolo. Io non ne sono responsabile.",
+     "Certo! {Può|Potete} lasciarle qui dietro il bancone finché {le|vi} servono. È gratuito.",
+     "lasciarle → lasciarli (i bagagli)"],
+    ["Grazie. E {mi|ci} potrebbe chiamare un taxi per le 15?",
+     "Certamente, prenoto un taxi per le 15. {La|Vi} aspetterà al cancello del giardino.",
+     "{Lo chiami Lei|Chiamatelo voi}, il numero è sul muro.",
+     "Certamente, prenoto un taxi per le 15. {La|Vi} aspetterà al cancello di giardino.",
+     "al cancello di giardino → al cancello del giardino"],
+    ["Benissimo. Allora, quant’è in totale?",
+     "{n} a {pr} € a notte: {bill} € in totale. Grazie mille per aver soggiornato da noi!",
+     "{bill} €. {Paghi|Pagate} adesso.",
+     "{n} a {pr} € a notte: {bill} € in totale. Grazie mille per aver soggiornato a noi!",
+     "a noi → da noi"],
+    "Grazie! È stato un soggiorno bellissimo."
+  ],
+  s0: [
+    ["Salve! {Mi|Ci} potrebbe consigliare un buon ristorante per cena stasera?",
+     "Certo! {Le|Vi} consiglio l’Osteria del Borgo: è a dieci minuti a piedi e fanno piatti tipici della zona.",
+     "C’è un’app per queste cose.",
+     "Certo! {Le|Vi} consiglio l’Osteria del Borgo: è a dieci minuti a piedi e fanno piatti tipichi della zona.",
+     "tipichi → tipici"],
+    ["Ottimo! Bisogna prenotare?",
+     "Sarebbe meglio, la sera c’è molta gente. {Vuole|Volete} che prenoti un tavolo per le 20?",
+     "Probabilmente. {Li chiami|Chiamateli}.",
+     "Sarebbe meglio, la sera c’è molto gente. {Vuole|Volete} che prenoti un tavolo per le 20?",
+     "molto gente → molta gente"],
+    "Sì, grazie, sarebbe perfetto!"
+  ],
+  s1: [
+    ["Scusi, il Wi-Fi in camera non funziona. Non {riesco|riusciamo} a collegar{mi|ci}.",
+     "Mi dispiace! Controllo subito. La rete si chiama «Glicine» e la password è glicine2026.",
+     "Per gli altri ospiti funziona.",
+     "Mi dispiaccio! Controllo subito. La rete si chiama «Glicine» e la password è glicine2026.",
+     "Mi dispiaccio → Mi dispiace"],
+    ["Niente… in camera il segnale è molto debole.",
+     "Allora riavvio subito il router. Se è ancora lento, qui in sala il segnale è fortissimo.",
+     "Allora {usi|usate} i dati del telefono.",
+     "Allora riavvio subito il router. Se è ancora lento, qui in sala il segnale è più fortissimo.",
+     "più fortissimo → fortissimo"],
+    "Ah, ora funziona! Grazie mille."
+  ],
+  s2: [
+    ["Salve! {Potrei|Potremmo} avere degli asciugamani in più, per favore?",
+     "Certo! Quanti ne {desidera|desiderate}? Li porto in camera tra pochi minuti.",
+     "La cameriera passa domani.",
+     "Certo! Quanti ne {desidera|desiderate}? Le porto in camera tra pochi minuti.",
+     "Le porto → Li porto (gli asciugamani)"],
+    ["Due, grazie. E anche un cuscino in più, se possibile.",
+     "Nessun problema, porto subito due asciugamani e un cuscino.",
+     "Un cuscino per letto. Mi dispiace.",
+     "Nessun problema, porto subito due asciugamano e un cuscino.",
+     "due asciugamano → due asciugamani"],
+    "Grazie, è molto gentile!"
+  ],
+  s3: [
+    ["Buongiorno. Stanotte non {ho|abbiamo} dormito: c’era molto rumore dalla strada.",
+     "Mi dispiace molto. {Vuole|Volete} che {la|vi} sposti in una camera più tranquilla, sul lato giardino?",
+     "È il centro storico. È normale.",
+     "Mi dispiace molto. {Vuole|Volete} che {la|vi} sposto in una camera più tranquilla, sul lato giardino?",
+     "che {la|vi} sposto → che {la|vi} sposti"],
+    ["Sì, sarebbe ottimo, se non è un problema.",
+     "Nessun disturbo! Preparo la camera per oggi pomeriggio e {le|vi} lascio anche dei tappi per le orecchie.",
+     "Va bene. {Sposti|Spostate} le {sue|vostre} cose dopo le 14.",
+     "Nessun disturbo! Preparo la camera per oggi pomeriggio e {le|vi} lascio anche degli tappi per le orecchie.",
+     "degli tappi → dei tappi"],
+    "Grazie mille, è davvero gentile."
+  ],
+  s4: [
+    ["Salve! {Il mio|Il nostro} treno parte la sera. Domani {potrei|potremmo} lasciare la camera un po’ più tardi?",
+     "Certo, controllo… sì, domani la camera è libera, quindi {può|potete} restare fino alle 13 senza costi aggiuntivi.",
+     "Il check-out è alle {co}. Le regole sono regole.",
+     "Certo, controllo… sì, domani la camera è libera, quindi {può|potete} restare fino a le 13 senza costi aggiuntivi.",
+     "fino a le 13 → fino alle 13"],
+    ["Perfetto! E dopo {posso|possiamo} ancora usare la cucina?",
+     "Sì, certo. {Può|Potete} usare la cucina e il giardino fino alla partenza del treno.",
+     "No. Dopo il check-out si va via.",
+     "Sì, certo. {Può|Potete} usare il cucina e il giardino fino alla partenza del treno.",
+     "il cucina → la cucina"],
+    "Ottimo, grazie mille!"
+  ],
+  s9: [
+    ["Mi scusi tanto… {credo|crediamo} di aver perso la chiave della camera.",
+     "{Non si preoccupi|Non vi preoccupate}, capita! Ecco la chiave di riserva della {room}.",
+     "È un problema. Una chiave nuova costa 20 €.",
+     "{Non si preoccupi|Non vi preoccupate}, capita! Ecco il chiave di riserva della {room}.",
+     "il chiave → la chiave"],
+    ["Grazie! {Dovrò|Dovremo} pagare quella persa?",
+     "No, nessun problema. Se {la trova|la trovate}, {la riporti|la riportate} pure al bancone.",
+     "Vedremo. {La cerchi|La cercate} bene.",
+     "No, nessun problema. Se {la trova|la trovate}, {lo riporti|lo riportate} pure al bancone.",
+     "{lo riporti|lo riportate} → {la riporti|la riportate}"],
+    "Che sollievo! Grazie mille."
+  ]
+},
+fr: {
+  in1: [
+    ["Bonjour ! {J’ai|Nous avons} une réservation au nom de {who}, pour {n}.",
+     "Bonjour et bienvenue ! Oui, j’ai bien votre réservation. Puis-je voir une pièce d’identité, s’il vous plaît ?",
+     "Nom ? … Bon. Passeport.",
+     "Bonjour et bienvenue ! Oui, j’ai bien votre réservation. Puis-je voir une pièce d’identité, s’il te plaît ?",
+     "s’il te plaît → s’il vous plaît"],
+    ["{La voici|Les voici}. À quelle heure est le petit-déjeuner ?",
+     "Merci. Le petit-déjeuner est servi de 7 h 30 à 10 h 30 dans la cuisine commune, au bout du couloir.",
+     "De 7 h 30 à 10 h 30. C’est écrit au mur.",
+     "Merci. Le petit-déjeuner est servie de 7 h 30 à 10 h 30 dans la cuisine commune, au bout du couloir.",
+     "servie → servi"],
+    ["Parfait. Et il y a le Wi-Fi ?",
+     "Bien sûr, il est gratuit. Le réseau s’appelle « Glicine » et le mot de passe est sur la carte de la clé. Bon séjour !",
+     "Oui. Mot de passe sur la carte.",
+     "Bien sûr, il est gratuit. Le réseau s’appelle « Glicine » et le mot de passe est sur la carte de la clé. Bonne séjour !",
+     "Bonne séjour → Bon séjour"],
+    "Merveilleux, merci beaucoup !"
+  ],
+  in2: [
+    ["Bonsoir ! {Excusez-moi|Excusez-nous} pour le retard. {J’ai|Nous avons} réservé {n} au nom de {who}.",
+     "Bonsoir, aucun problème ! Votre réservation est confirmée : {n}, {bill} € au total.",
+     "Vous êtes en retard. {n}, {bill} €.",
+     "Bonsoir, aucun problème ! Votre réservation est confirmé : {n}, {bill} € au total.",
+     "confirmé → confirmée"],
+    ["{Je suis|Nous sommes} en voiture. Où {puis-je me garer|pouvons-nous nous garer} ?",
+     "Il y a un parking gratuit juste derrière le bâtiment. Vous pouvez y laisser la voiture pendant tout le séjour.",
+     "Cherchez une place dans la rue.",
+     "Il y a un parking gratuit juste derrière le bâtiment. Vous pouvez y laisser la voiture pendant toute le séjour.",
+     "toute le séjour → tout le séjour"],
+    ["Super. Vous pouvez {me|nous} conseiller un restaurant pas loin pour ce soir ?",
+     "Avec plaisir ! La Trattoria da Rosa est à cinq minutes à pied et les pâtes maison sont excellentes. Voulez-vous que je réserve une table ?",
+     "Il y a plein de restaurants. Regardez sur internet.",
+     "Avec plaisir ! La Trattoria da Rosa est à cinq minutes à pied et les pâtes maison sont excellentes. Voulez-vous que je réserverai une table ?",
+     "que je réserverai → que je réserve"],
+    "Parfait, merci !"
+  ],
+  out1: [
+    ["Bonjour ! {Je voudrais|Nous voudrions} faire le check-out, s’il vous plaît. Voici la clé.",
+     "Bonjour ! Merci. J’espère que vous avez passé un bon séjour dans la {room}.",
+     "Posez la clé sur le comptoir.",
+     "Bonjour ! Merci. J’espère que vous avez passé une bon séjour dans la {room}.",
+     "une bon séjour → un bon séjour"],
+    ["C’était très agréable, merci. Combien {je vous dois|nous vous devons} ?",
+     "Cela fait {n} à {pr} € la nuit, soit {bill} € au total. Vous pouvez payer par carte ou en espèces.",
+     "{bill} €.",
+     "Cela fait {n} à {pr} € la nuit, soit {bill} € au total. Vous pouvez payer avec carte ou en espèces.",
+     "avec carte → par carte"],
+    ["Par carte, s’il vous plaît. Voilà.",
+     "Merci, voici votre reçu. Bon voyage, et au plaisir de vous revoir !",
+     "C’est fait. Au revoir.",
+     "Merci, voici votre reçu. Bonne voyage, et au plaisir de vous revoir !",
+     "Bonne voyage → Bon voyage"],
+    "Merci pour tout. Au revoir !"
+  ],
+  out2: [
+    ["Bonjour ! {Je pars|Nous partons} aujourd’hui. {Puis-je|Pouvons-nous} laisser {mes|nos} bagages ici jusqu’à cet après-midi ?",
+     "Bien sûr ! Vous pouvez les laisser ici, derrière le comptoir, aussi longtemps que nécessaire. C’est gratuit.",
+     "D’accord, mais mettez-les dans le coin {vous-même|vous-mêmes}.",
+     "Bien sûr ! Vous pouvez leur laisser ici, derrière le comptoir, aussi longtemps que nécessaire. C’est gratuit.",
+     "leur laisser → les laisser"],
+    ["Merci. Et pourriez-vous {m’appeler|nous appeler} un taxi pour 15 h ?",
+     "Certainement, je réserve un taxi pour 15 h. Il vous attendra devant le portail du jardin.",
+     "Appelez-le vous-même, le numéro est au mur.",
+     "Certainement, je réserve un taxi pour 15 h. Il vous attendra devant la portail du jardin.",
+     "la portail → le portail"],
+    ["Parfait. Alors, ça fait combien au total ?",
+     "{n} à {pr} € la nuit : {bill} € au total. Merci beaucoup d’avoir séjourné chez nous !",
+     "{bill} €. Payez maintenant.",
+     "{n} à {pr} € la nuit : {bill} € au total. Merci beaucoup d’avoir séjourné à nous !",
+     "à nous → chez nous"],
+    "Merci ! C’était un séjour très agréable."
+  ],
+  s0: [
+    ["Bonjour ! Pourriez-vous {me|nous} conseiller un bon restaurant pour ce soir ?",
+     "Bien sûr ! Je vous conseille l’Osteria del Borgo : c’est à dix minutes à pied et on y mange des plats typiques de la région.",
+     "Il y a une appli pour ça.",
+     "Bien sûr ! Je vous conseille l’Osteria del Borgo : c’est à dix minutes à pied et on y mange des plats typiques de le région.",
+     "de le région → de la région"],
+    ["Super ! Il faut réserver ?",
+     "C’est préférable, il y a du monde le soir. Voulez-vous que je réserve une table pour 20 h ?",
+     "Sans doute. Appelez-les.",
+     "C’est préférable, il y a beaucoup du monde le soir. Voulez-vous que je réserve une table pour 20 h ?",
+     "beaucoup du monde → beaucoup de monde"],
+    "Oui, avec plaisir, ce serait parfait !"
+  ],
+  s1: [
+    ["Excusez-moi, le Wi-Fi ne marche pas dans {ma|notre} chambre. {Je n’arrive pas à me|Nous n’arrivons pas à nous} connecter.",
+     "Toutes mes excuses ! Je vérifie tout de suite. Le réseau s’appelle « Glicine » et le mot de passe est glicine2026.",
+     "Pour les autres clients, ça marche.",
+     "Toutes mes excuses ! Je vérifie tout de suite. Le réseau s’appelle « Glicine » et la mot de passe est glicine2026.",
+     "la mot de passe → le mot de passe"],
+    ["Toujours rien… le signal est très faible dans la chambre.",
+     "Alors je redémarre le routeur tout de suite. Si c’est encore lent, le signal est très fort ici, au salon.",
+     "Alors utilisez vos données mobiles.",
+     "Alors je redémarre le routeur tout de suite. Si c’est encore lent, le signal est très fort ici, à le salon.",
+     "à le salon → au salon"],
+    "Ah, maintenant ça marche ! Merci beaucoup."
+  ],
+  s2: [
+    ["Bonjour ! {Pourrais-je|Pourrions-nous} avoir des serviettes en plus, s’il vous plaît ?",
+     "Bien sûr ! Combien en voulez-vous ? Je vous les apporte dans quelques minutes.",
+     "La femme de chambre passe demain.",
+     "Bien sûr ! Combien en voulez-vous ? Je vous les apporte dans quelques minute.",
+     "quelques minute → quelques minutes"],
+    ["Deux, merci. Et un oreiller en plus aussi, si possible.",
+     "Aucun problème, je vous apporte tout de suite deux serviettes et un oreiller.",
+     "C’est un oreiller par lit, pas plus.",
+     "Aucun problème, je vous apporte tout de suite deux serviettes et une oreiller.",
+     "une oreiller → un oreiller"],
+    "Merci, c’est très gentil !"
+  ],
+  s3: [
+    ["Bonjour. {Je n’ai|Nous n’avons} pas pu dormir cette nuit : il y avait beaucoup de bruit dans la rue.",
+     "Toutes mes excuses pour ce désagrément. Voulez-vous que je vous installe dans une chambre plus calme, côté jardin ?",
+     "C’est le centre-ville. C’est normal.",
+     "Toutes mes excuses pour ce désagrément. Voulez-vous que je vous installe dans une chambre plus calme, côté de jardin ?",
+     "côté de jardin → côté jardin"],
+    ["Oui, ce serait super, si ce n’est pas un problème.",
+     "Pas du tout. Je prépare la chambre pour cet après-midi, et je vous laisse aussi des bouchons d’oreilles.",
+     "D’accord. Déplacez vos affaires après 14 h.",
+     "Pas de tout. Je prépare la chambre pour cet après-midi, et je vous laisse aussi des bouchons d’oreilles.",
+     "Pas de tout → Pas du tout"],
+    "Merci beaucoup, c’est vraiment gentil."
+  ],
+  s4: [
+    ["Bonjour ! {Mon|Notre} train part le soir. {Est-ce que je pourrais|Est-ce que nous pourrions} libérer la chambre un peu plus tard demain ?",
+     "Bien sûr, je vérifie… oui, la chambre est libre demain, vous pouvez donc rester jusqu’à 13 h sans supplément.",
+     "Le check-out est à {co}. Le règlement, c’est le règlement.",
+     "Bien sûr, je vérifie… oui, la chambre est libre demain, vous pouvez donc rester jusque 13 h sans supplément.",
+     "jusque 13 h → jusqu’à 13 h"],
+    ["Parfait ! Et après, {je peux|nous pouvons} encore utiliser la cuisine ?",
+     "Oui, tout à fait. Vous pouvez profiter de la cuisine et du jardin jusqu’à votre train.",
+     "Non. Après le check-out, on s’en va.",
+     "Oui, tout à fait. Vous pouvez profiter de la cuisine et de le jardin jusqu’à votre train.",
+     "de le jardin → du jardin"],
+    "Super, merci beaucoup !"
+  ],
+  s9: [
+    ["{Excusez-moi|Excusez-nous}… {je crois|nous croyons} avoir perdu la clé de la chambre.",
+     "Ne vous inquiétez pas, ça arrive ! Voici la clé de secours de la {room}.",
+     "C’est un problème. Une nouvelle clé coûte 20 €.",
+     "Ne vous inquiétez pas, ça arrive ! Voici le clé de secours de la {room}.",
+     "le clé → la clé"],
+    ["Merci ! {Je dois|Nous devons} payer la clé perdue ?",
+     "Non, ne vous en faites pas. Si vous la retrouvez, rapportez-la simplement à l’accueil.",
+     "On verra. Cherchez-la bien.",
+     "Non, ne vous en faites pas. Si vous la retrouvez, rapportez-le simplement à l’accueil.",
+     "rapportez-le → rapportez-la"],
+    "Quel soulagement ! Merci beaucoup."
+  ]
+},
+es: {
+  in1: [
+    ["¡Hola! {Tengo|Tenemos} una reserva a nombre de {who}, para {n}.",
+     "¡Buenas tardes! Sí, aquí tengo su reserva. ¿Me {puede|pueden} dar un documento de identidad, por favor?",
+     "¿Nombre? … Vale. Pasaporte.",
+     "¡Buenas tardes! Sí, aquí tengo su reserva. ¿Me {puedes|podéis} dar un documento de identidad, por favor?",
+     "{puedes|podéis} → {puede|pueden} (usted)"],
+    ["Aquí {lo tiene|los tiene}. ¿A qué hora es el desayuno?",
+     "Gracias. El desayuno se sirve de 7:30 a 10:30 en la cocina común, al fondo del pasillo.",
+     "De 7:30 a 10:30. Está escrito en la pared.",
+     "Gracias. El desayuno se sirve de 7:30 a 10:30 en la cocina común, al fondo de el pasillo.",
+     "de el pasillo → del pasillo"],
+    ["Perfecto. ¿Y hay wifi?",
+     "Claro, es gratuito. La red se llama «Glicine» y la contraseña está en la tarjeta de la llave. ¡Que {disfrute|disfruten} de su estancia!",
+     "Sí. Contraseña en la tarjeta.",
+     "Claro, es gratuito. La red se llama «Glicine» y la contraseña es en la tarjeta de la llave. ¡Que {disfrute|disfruten} de su estancia!",
+     "es en la tarjeta → está en la tarjeta"],
+    "¡Estupendo, muchas gracias!"
+  ],
+  in2: [
+    ["¡Buenas noches! Perdone el retraso. {Reservé|Reservamos} {n} a nombre de {who}.",
+     "¡Buenas noches, no se {preocupe|preocupen}! Su reserva está confirmada: {n}, {bill} € en total.",
+     "{Llega|Llegan} tarde. {n}, {bill} €.",
+     "¡Buenas noches, no se {preocupe|preocupen}! Su reserva está confirmado: {n}, {bill} € en total.",
+     "confirmado → confirmada"],
+    ["{Vengo|Venimos} en coche. ¿Dónde {puedo|podemos} aparcar?",
+     "Hay un aparcamiento gratuito justo detrás del edificio. {Puede|Pueden} dejar el coche allí durante toda la estancia.",
+     "{Busque|Busquen} sitio en la calle.",
+     "Hay un aparcamiento gratuito justo detrás del edificio. {Puede|Pueden} dejar el coche allí durante todo la estancia.",
+     "todo la estancia → toda la estancia"],
+    ["Genial. ¿{Me|Nos} recomienda un sitio para cenar cerca?",
+     "¡Por supuesto! La Trattoria da Rosa está a cinco minutos a pie y la pasta casera es excelente. ¿{Quiere|Quieren} que reserve una mesa?",
+     "Hay muchos restaurantes. {Mire|Miren} en internet.",
+     "¡Por supuesto! La Trattoria da Rosa está a cinco minutos a pie y la pasta casera es excelente. ¿{Quiere|Quieren} que reservo una mesa?",
+     "que reservo → que reserve"],
+    "¡Perfecto, gracias!"
+  ],
+  out1: [
+    ["¡Buenos días! {Quisiera|Quisiéramos} hacer el check-out, por favor. Aquí está la llave.",
+     "¡Buenos días! Gracias. Espero que {haya|hayan} disfrutado de su estancia en la {room}.",
+     "{Deje|Dejen} la llave en el mostrador.",
+     "¡Buenos días! Gracias. Espero que {ha|han} disfrutado de su estancia en la {room}.",
+     "{ha|han} disfrutado → {haya|hayan} disfrutado"],
+    ["Ha sido muy agradable, gracias. ¿Cuánto le {debo|debemos}?",
+     "Son {n} a {pr} € por noche, es decir, {bill} € en total. {Puede|Pueden} pagar con tarjeta o en efectivo.",
+     "{bill} €.",
+     "Son {n} a {pr} € por noche, es decir, {bill} € en total. {Puede|Pueden} pagar con tarjeta o en efectiva.",
+     "en efectiva → en efectivo"],
+    ["Con tarjeta, por favor. Tome.",
+     "Gracias, aquí tiene su recibo. ¡Buen viaje, y esperamos volver a {verle|verles} pronto!",
+     "Hecho. Adiós.",
+     "Gracias, aquí tiene su recibo. ¡Bueno viaje, y esperamos volver a {verle|verles} pronto!",
+     "Bueno viaje → Buen viaje"],
+    "Gracias por todo. ¡Adiós!"
+  ],
+  out2: [
+    ["¡Hola! Hoy {me voy|nos vamos}. ¿{Puedo|Podemos} dejar el equipaje aquí hasta esta tarde?",
+     "¡Claro! {Puede|Pueden} dejarlo aquí detrás del mostrador el tiempo que {necesite|necesiten}. Es gratis.",
+     "Vale, pero en el rincón. Yo no me hago responsable.",
+     "¡Claro! {Puede|Pueden} dejarla aquí detrás del mostrador el tiempo que {necesite|necesiten}. Es gratis.",
+     "dejarla → dejarlo (el equipaje)"],
+    ["Gracias. ¿Y {me|nos} podría llamar un taxi para las 15:00?",
+     "Por supuesto, reservo un taxi para las 15:00. {Le|Les} esperará en la puerta del jardín.",
+     "{Llámelo usted|Llámenlo ustedes}, el número está en la pared.",
+     "Por supuesto, reservo un taxi para las 15:00. {Le|Les} esperará en la puerta de la jardín.",
+     "de la jardín → del jardín"],
+    ["Estupendo. Entonces, ¿cuánto es en total?",
+     "{n} a {pr} € por noche: {bill} € en total. ¡Muchas gracias por alojarse con nosotros!",
+     "{bill} €. {Pague|Paguen} ahora.",
+     "{n} a {pr} € por noche: {bill} € en total. ¡Muchas gracias por alojarse en nosotros!",
+     "en nosotros → con nosotros"],
+    "¡Gracias! Ha sido una estancia preciosa."
+  ],
+  s0: [
+    ["¡Hola! ¿{Me|Nos} podría recomendar un buen restaurante para cenar esta noche?",
+     "¡Claro! {Le|Les} recomiendo la Osteria del Borgo: está a diez minutos a pie y tienen platos típicos de la zona.",
+     "Hay una aplicación para eso.",
+     "¡Claro! {Le|Les} recomiendo la Osteria del Borgo: está a diez minutos a pie y tienen platos típicas de la zona.",
+     "platos típicas → platos típicos"],
+    ["¡Genial! ¿Hay que reservar?",
+     "Es mejor, por la noche hay mucha gente. ¿{Quiere|Quieren} que reserve una mesa para las 20:00?",
+     "Probablemente. {Llámelos|Llámenlos}.",
+     "Es mejor, por la noche hay mucho gente. ¿{Quiere|Quieren} que reserve una mesa para las 20:00?",
+     "mucho gente → mucha gente"],
+    "Sí, por favor, ¡sería perfecto!"
+  ],
+  s1: [
+    ["Perdone, el wifi de la habitación no funciona. No {consigo|conseguimos} conectar{me|nos}.",
+     "¡Lo siento mucho! Lo compruebo enseguida. La red se llama «Glicine» y la contraseña es glicine2026.",
+     "A los demás huéspedes les funciona.",
+     "¡Lo siento mucho! Lo compruebo enseguida. La red se llama «Glicine» y el contraseña es glicine2026.",
+     "el contraseña → la contraseña"],
+    ["Sigue sin funcionar… en la habitación la señal es muy débil.",
+     "Entonces reinicio el router ahora mismo. Si sigue lento, aquí en el salón la señal es muy buena.",
+     "Entonces {use|usen} los datos del móvil.",
+     "Entonces reinicio el router ahora mismo. Si sigue lento, aquí en el salón la señal es muy bueno.",
+     "muy bueno → muy buena"],
+    "¡Ah, ahora funciona! Muchas gracias."
+  ],
+  s2: [
+    ["¡Hola! ¿{Podría|Podríamos} tener unas toallas más, por favor?",
+     "¡Por supuesto! ¿Cuántas {necesita|necesitan}? Se las llevo a la habitación en unos minutos.",
+     "La camarera pasa mañana.",
+     "¡Por supuesto! ¿Cuántos {necesita|necesitan}? Se las llevo a la habitación en unos minutos.",
+     "Cuántos → Cuántas (las toallas)"],
+    ["Dos, gracias. Y también una almohada más, si es posible.",
+     "No hay problema, {le|les} llevo ahora mismo dos toallas y una almohada.",
+     "Solo una almohada por cama. Lo siento.",
+     "No hay problema, {le|les} llevo ahora mismo dos toallas y un almohada.",
+     "un almohada → una almohada"],
+    "¡Gracias, es muy amable!"
+  ],
+  s3: [
+    ["Buenos días. Esta noche no {he|hemos} podido dormir: había mucho ruido en la calle.",
+     "Lo siento muchísimo. ¿{Quiere|Quieren} que {le|les} cambie a una habitación más tranquila, del lado del jardín?",
+     "Es el centro. Es normal.",
+     "Lo siento muchísimo. ¿{Quiere|Quieren} que {le|les} cambio a una habitación más tranquila, del lado del jardín?",
+     "que {le|les} cambio → que {le|les} cambie"],
+    ["Sí, sería estupendo, si no es molestia.",
+     "Ninguna molestia. Preparo la habitación para esta tarde y también {le|les} dejo unos tapones para los oídos.",
+     "Vale. {Mueva|Muevan} sus cosas después de las 14:00.",
+     "Ninguna molestia. Preparo la habitación para esta tarde y también {le|les} dejo unos tapones para las oídos.",
+     "las oídos → los oídos"],
+    "Muchas gracias, es usted muy amable."
+  ],
+  s4: [
+    ["¡Hola! {Mi|Nuestro} tren sale por la noche. ¿{Podría|Podríamos} dejar la habitación un poco más tarde mañana?",
+     "Claro, lo compruebo… sí, mañana la habitación está libre, así que {puede|pueden} quedarse hasta las 13:00 sin coste adicional.",
+     "El check-out es a las {co}. Las normas son las normas.",
+     "Claro, lo compruebo… sí, mañana la habitación está libre, así que {puede|pueden} quedarse hasta la 13:00 sin coste adicional.",
+     "hasta la 13:00 → hasta las 13:00"],
+    ["¡Perfecto! ¿Y después {puedo|podemos} seguir usando la cocina?",
+     "Sí, por supuesto. {Puede|Pueden} usar la cocina y el jardín hasta la hora del tren.",
+     "No. Después del check-out hay que irse.",
+     "Sí, por supuesto. {Puede|Pueden} usar el cocina y el jardín hasta la hora del tren.",
+     "el cocina → la cocina"],
+    "¡Genial, muchas gracias!"
+  ],
+  s9: [
+    ["Lo siento mucho… {creo que he|creemos que hemos} perdido la llave de la habitación.",
+     "¡No se {preocupe|preocupen}, son cosas que pasan! Aquí {tiene|tienen} la llave de repuesto de la {room}.",
+     "Es un problema. Una llave nueva cuesta 20 €.",
+     "¡No se {preocupe|preocupen}, son cosas que pasan! Aquí {tiene|tienen} el llave de repuesto de la {room}.",
+     "el llave → la llave"],
+    ["¡Gracias! ¿{Tengo|Tenemos} que pagar la llave perdida?",
+     "No, no se {preocupe|preocupen}. Si la {encuentra|encuentran}, {devuélvala|devuélvanla} en recepción.",
+     "Ya veremos. {Búsquela|Búsquenla} bien.",
+     "No, no se {preocupe|preocupen}. Si la {encuentra|encuentran}, {devuélvalo|devuélvanlo} en recepción.",
+     "{devuélvalo|devuélvanlo} → {devuélvala|devuélvanla}"],
+    "¡Qué alivio! Muchas gracias."
+  ]
+},
+de: {
+  in1: [
+    ["Hallo! {Ich habe|Wir haben} eine Reservierung auf den Namen {who}, für {n}.",
+     "Guten Tag und herzlich willkommen! Ja, ich habe Ihre Reservierung hier. Darf ich bitte einen Ausweis sehen?",
+     "Name? … Gut. Pass.",
+     "Guten Tag und herzlich willkommen! Ja, ich habe deine Reservierung hier. Darf ich bitte einen Ausweis sehen?",
+     "deine → Ihre (Sie)"],
+    ["Bitte schön. Wann gibt es Frühstück?",
+     "Danke. Frühstück gibt es von 7:30 bis 10:30 Uhr in der Gemeinschaftsküche, am Ende des Flurs.",
+     "Von 7:30 bis 10:30. Steht an der Wand.",
+     "Danke. Frühstück gibt es von 7:30 bis 10:30 Uhr in die Gemeinschaftsküche, am Ende des Flurs.",
+     "in die Gemeinschaftsküche → in der Gemeinschaftsküche"],
+    ["Perfekt. Und gibt es WLAN?",
+     "Natürlich, kostenlos. Das Netzwerk heißt „Glicine“ und das Passwort steht auf der Schlüsselkarte. Einen schönen Aufenthalt!",
+     "Ja. Passwort auf der Karte.",
+     "Natürlich, kostenlos. Das Netzwerk heißt „Glicine“ und das Passwort steht auf die Schlüsselkarte. Einen schönen Aufenthalt!",
+     "auf die Schlüsselkarte → auf der Schlüsselkarte"],
+    "Wunderbar, vielen Dank!"
+  ],
+  in2: [
+    ["Guten Abend! Entschuldigung für die Verspätung. {Ich habe|Wir haben} {n} auf den Namen {who} gebucht.",
+     "Guten Abend, kein Problem! Ihre Buchung ist bestätigt: {n}, insgesamt {bill} €.",
+     "Sie sind spät dran. {n}, {bill} €.",
+     "Guten Abend, keine Problem! Ihre Buchung ist bestätigt: {n}, insgesamt {bill} €.",
+     "keine Problem → kein Problem"],
+    ["{Ich bin|Wir sind} mit dem Auto da. Wo {kann ich|können wir} parken?",
+     "Direkt hinter dem Haus gibt es einen kostenlosen Parkplatz. Dort können Sie das Auto während des ganzen Aufenthalts stehen lassen.",
+     "Suchen Sie sich einen Platz auf der Straße.",
+     "Direkt hinter das Haus gibt es einen kostenlosen Parkplatz. Dort können Sie das Auto während des ganzen Aufenthalts stehen lassen.",
+     "hinter das Haus → hinter dem Haus"],
+    ["Super. Können Sie {mir|uns} ein Restaurant in der Nähe empfehlen?",
+     "Sehr gern! Die Trattoria da Rosa ist fünf Minuten zu Fuß entfernt, und die hausgemachte Pasta ist ausgezeichnet. Soll ich einen Tisch für Sie reservieren?",
+     "Es gibt viele Restaurants. Schauen Sie im Internet.",
+     "Sehr gern! Die Trattoria da Rosa ist fünf Minuten zu Fuß entfernt, und die hausgemachte Pasta ist ausgezeichnet. Soll ich einen Tisch für Sie reserviert?",
+     "reserviert → reservieren"],
+    "Perfekt, danke!"
+  ],
+  out1: [
+    ["Guten Morgen! {Ich möchte|Wir möchten} bitte auschecken. Hier ist der Schlüssel.",
+     "Guten Morgen! Vielen Dank. Ich hoffe, Sie hatten einen schönen Aufenthalt in {room}.",
+     "Schlüssel auf die Theke.",
+     "Guten Morgen! Vielen Dank. Ich hoffe, Sie hatten einen schöne Aufenthalt in {room}.",
+     "einen schöne Aufenthalt → einen schönen Aufenthalt"],
+    ["Es war sehr schön, danke. Was {bin ich|sind wir} Ihnen schuldig?",
+     "Das sind {n} zu je {pr} €, also insgesamt {bill} €. Sie können mit Karte oder bar bezahlen.",
+     "{bill} €.",
+     "Das sind {n} zu je {pr} €, also insgesamt {bill} €. Sie kann mit Karte oder bar bezahlen.",
+     "Sie kann → Sie können"],
+    ["Mit Karte, bitte. Bitte schön.",
+     "Danke, hier ist Ihre Quittung. Gute Reise, und wir hoffen, Sie bald wiederzusehen!",
+     "Erledigt. Tschüss.",
+     "Danke, hier ist Ihre Quittung. Guten Reise, und wir hoffen, Sie bald wiederzusehen!",
+     "Guten Reise → Gute Reise"],
+    "Danke für alles. Auf Wiedersehen!"
+  ],
+  out2: [
+    ["Hallo! {Ich reise|Wir reisen} heute ab. {Kann ich|Können wir} das Gepäck bis heute Nachmittag hier lassen?",
+     "Natürlich! Sie können es hier hinter der Theke lassen, so lange Sie möchten. Das ist kostenlos.",
+     "Okay, aber stellen Sie es selbst in die Ecke.",
+     "Natürlich! Sie können ihn hier hinter der Theke lassen, so lange Sie möchten. Das ist kostenlos.",
+     "ihn → es (das Gepäck)"],
+    ["Danke. Und könnten Sie {mir|uns} ein Taxi für 15 Uhr rufen?",
+     "Selbstverständlich, ich bestelle ein Taxi für 15 Uhr. Es wartet am Gartentor auf Sie.",
+     "Rufen Sie es selbst, die Nummer hängt an der Wand.",
+     "Selbstverständlich, ich bestelle ein Taxi für 15 Uhr. Es wartet am Gartentor auf Ihnen.",
+     "auf Ihnen → auf Sie"],
+    ["Wunderbar. Was macht das insgesamt?",
+     "{n} zu je {pr} €: insgesamt {bill} €. Vielen Dank, dass Sie bei uns gewohnt haben!",
+     "{bill} €. Zahlen Sie jetzt.",
+     "{n} zu je {pr} €: insgesamt {bill} €. Vielen Dank, dass Sie bei uns gewohnt hat!",
+     "gewohnt hat → gewohnt haben"],
+    "Danke! Es war ein wunderschöner Aufenthalt."
+  ],
+  s0: [
+    ["Hallo! Können Sie {mir|uns} ein gutes Restaurant für heute Abend empfehlen?",
+     "Gern! Ich empfehle Ihnen die Osteria del Borgo: Sie ist zehn Minuten zu Fuß entfernt und hat typische Gerichte aus der Region.",
+     "Dafür gibt es eine App.",
+     "Gern! Ich empfehle Ihnen die Osteria del Borgo: Sie ist zehn Minuten zu Fuß entfernt und hat typischen Gerichte aus der Region.",
+     "typischen Gerichte → typische Gerichte"],
+    ["Toll! Muss man reservieren?",
+     "Das wäre besser, abends ist dort viel los. Soll ich einen Tisch für 20 Uhr reservieren?",
+     "Wahrscheinlich. Rufen Sie dort an.",
+     "Das wäre besser, abends ist dort viele los. Soll ich einen Tisch für 20 Uhr reservieren?",
+     "viele los → viel los"],
+    "Ja, bitte, das wäre perfekt!"
+  ],
+  s1: [
+    ["Entschuldigung, das WLAN in {meinem|unserem} Zimmer funktioniert nicht. {Ich komme|Wir kommen} nicht ins Netz.",
+     "Das tut mir leid! Ich prüfe das sofort. Das Netzwerk heißt „Glicine“ und das Passwort ist glicine2026.",
+     "Bei den anderen Gästen funktioniert es.",
+     "Das tut mir leid! Ich prüfe das sofort. Der Netzwerk heißt „Glicine“ und das Passwort ist glicine2026.",
+     "Der Netzwerk → Das Netzwerk"],
+    ["Immer noch nichts… im Zimmer ist das Signal sehr schwach.",
+     "Dann starte ich den Router sofort neu. Falls es noch langsam ist: Hier in der Lounge ist das Signal sehr stark.",
+     "Dann nutzen Sie Ihre mobilen Daten.",
+     "Dann ich starte den Router sofort neu. Falls es noch langsam ist: Hier in der Lounge ist das Signal sehr stark.",
+     "Dann ich starte → Dann starte ich"],
+    "Ah, jetzt geht es! Vielen Dank."
+  ],
+  s2: [
+    ["Hallo! {Könnte ich|Könnten wir} bitte noch ein paar Handtücher bekommen?",
+     "Natürlich! Wie viele möchten Sie? Ich bringe sie Ihnen in ein paar Minuten aufs Zimmer.",
+     "Das Zimmermädchen kommt morgen.",
+     "Natürlich! Wie viel Handtücher möchten Sie? Ich bringe sie Ihnen in ein paar Minuten aufs Zimmer.",
+     "Wie viel Handtücher → Wie viele Handtücher"],
+    ["Zwei, bitte. Und wenn möglich auch ein zusätzliches Kissen.",
+     "Kein Problem, ich bringe Ihnen sofort zwei Handtücher und ein Kissen.",
+     "Nur ein Kissen pro Bett. Tut mir leid.",
+     "Kein Problem, ich bringe Ihnen sofort zwei Handtücher und einen Kissen.",
+     "einen Kissen → ein Kissen"],
+    "Danke, das ist sehr nett!"
+  ],
+  s3: [
+    ["Guten Morgen. {Ich konnte|Wir konnten} letzte Nacht nicht schlafen: Es war sehr laut auf der Straße.",
+     "Das tut mir sehr leid. Möchten Sie in ein ruhigeres Zimmer auf der Gartenseite umziehen?",
+     "Das ist die Innenstadt. Das ist normal.",
+     "Das tut mir sehr leid. Möchten Sie in einem ruhigeren Zimmer auf der Gartenseite umziehen?",
+     "in einem ruhigeren Zimmer → in ein ruhigeres Zimmer"],
+    ["Ja, das wäre toll, wenn es keine Umstände macht.",
+     "Überhaupt nicht. Ich bereite das Zimmer für heute Nachmittag vor und lege Ihnen auch Ohrstöpsel hin.",
+     "Gut. Bringen Sie Ihre Sachen nach 14 Uhr selbst rüber.",
+     "Überhaupt nicht. Ich bereite das Zimmer für heute Nachmittag vor und lege Sie auch Ohrstöpsel hin.",
+     "lege Sie → lege Ihnen"],
+    "Vielen Dank, das ist wirklich nett von Ihnen."
+  ],
+  s4: [
+    ["Hallo! {Mein|Unser} Zug fährt erst abends. {Könnte ich|Könnten wir} morgen etwas später auschecken?",
+     "Natürlich, ich schaue nach… ja, das Zimmer ist morgen frei, Sie können also ohne Aufpreis bis 13 Uhr bleiben.",
+     "Check-out ist um {co}. Regeln sind Regeln.",
+     "Natürlich, ich schaue nach… ja, das Zimmer ist morgen frei, Sie können also ohne Aufpreis bis 13 Uhr bleibt.",
+     "bleibt → bleiben"],
+    ["Perfekt! Und danach {kann ich|können wir} noch die Küche benutzen?",
+     "Ja, selbstverständlich. Sie können die Küche und den Garten nutzen, bis Ihr Zug fährt.",
+     "Nein. Nach dem Check-out geht man.",
+     "Ja, selbstverständlich. Sie können die Küche und der Garten nutzen, bis Ihr Zug fährt.",
+     "der Garten → den Garten"],
+    "Super, vielen Dank!"
+  ],
+  s9: [
+    ["Es tut mir so leid… {ich glaube, ich habe|wir glauben, wir haben} den Zimmerschlüssel verloren.",
+     "Keine Sorge, das kann passieren! Hier ist der Ersatzschlüssel für {room}.",
+     "Das ist ein Problem. Ein neuer Schlüssel kostet 20 €.",
+     "Keine Sorge, das kann passieren! Hier ist die Ersatzschlüssel für {room}.",
+     "die Ersatzschlüssel → der Ersatzschlüssel"],
+    ["Danke! {Muss ich|Müssen wir} den verlorenen Schlüssel bezahlen?",
+     "Nein, keine Sorge. Wenn Sie ihn finden, geben Sie ihn einfach an der Rezeption ab.",
+     "Mal sehen. Suchen Sie gut.",
+     "Nein, keine Sorge. Wenn Sie ihn finden, geben Sie es einfach an der Rezeption ab.",
+     "geben Sie es → geben Sie ihn"],
+    "Was für eine Erleichterung! Vielen Dank."
+  ]
+}
+};
+// reazioni dell'ospite a una risposta scortese o sbagliata
+const QR = {
+  en:{ cold:['Oh… okay.','Hmm, I see.','Right…'], err:['Sorry?… Ah, I think I understand.','Pardon?… Ah, okay.'] },
+  it:{ cold:['Ah… va bene.','Mmh, capisco.','Ah, ok…'], err:['Come?… Ah, credo di aver capito.','Prego?… Ah, ok.'] },
+  fr:{ cold:['Ah… d’accord.','Hum, je vois.','Bon…'], err:['Pardon ?… Ah, je crois que je comprends.','Comment ?… Ah, d’accord.'] },
+  es:{ cold:['Ah… vale.','Mmm, entiendo.','Bueno…'], err:['¿Perdón?… Ah, creo que lo entiendo.','¿Cómo?… Ah, vale.'] },
+  de:{ cold:['Oh… okay.','Hm, verstehe.','Na gut…'], err:['Wie bitte?… Ah, ich glaube, ich verstehe.','Bitte?… Ah, okay.'] }
+};
+Object.assign(L, {
+  mode:['Modalità di gioco','Game mode','Mode de jeu','Modo de juego','Spielmodus'],
+  m_mgmt:['🗂️ Gestionale','🗂️ Management','🗂️ Gestion','🗂️ Gestión','🗂️ Verwaltung'],
+  m_quiz:['📝 Senza LLM','📝 Without LLM','📝 Sans LLM','📝 Sin LLM','📝 Ohne LLM'],
+  m_llm:['🤖 Con LLM','🤖 With LLM','🤖 Avec LLM','🤖 Con LLM','🤖 Mit LLM'],
+  m_mgmtS:['Solo gestione dell’albergo: check-in, check-out e camere, senza dialoghi con gli ospiti.','Hotel management only: check-in, check-out and rooms, no conversations with guests.','Gestion de l’hôtel uniquement : check-in, check-out et chambres, sans dialogues avec les clients.','Solo gestión del hotel: check-in, check-out y habitaciones, sin diálogos con los huéspedes.','Nur Hotelverwaltung: Check-in, Check-out und Zimmer, ohne Gespräche mit den Gästen.'],
+  m_quizS:['Dialoghi a scelta multipla nella lingua dell’ospite: a ogni battuta scegli la risposta migliore e vedi subito la correzione. Non servono chiavi API né connessione.','Multiple-choice dialogues in the guest’s language: for each line pick the best reply and see the correction straight away. No API key or connection needed.','Dialogues à choix multiple dans la langue du client : à chaque réplique, choisissez la meilleure réponse et voyez tout de suite la correction. Aucune clé API ni connexion nécessaire.','Diálogos de opción múltiple en el idioma del huésped: en cada frase elige la mejor respuesta y ve la corrección al momento. No hace falta clave API ni conexión.','Multiple-Choice-Dialoge in der Sprache des Gastes: Wähle bei jedem Satz die beste Antwort und sieh sofort die Korrektur. Kein API-Schlüssel und keine Verbindung nötig.'],
+  m_llmS:['Dialoghi liberi: scrivi tu le risposte, un modello di intelligenza artificiale interpreta l’ospite e ti valuta. Configura il fornitore nella scheda «Modalità LLM».','Free dialogues: you write your replies, an AI model plays the guest and rates you. Set up the provider in the “LLM mode” tab.','Dialogues libres : vous écrivez vos réponses, un modèle d’IA joue le client et vous évalue. Configurez le fournisseur dans l’onglet « Mode LLM ».','Diálogos libres: escribes tus respuestas, un modelo de IA interpreta al huésped y te evalúa. Configura el proveedor en la pestaña «Modo LLM».','Freie Dialoge: Du schreibst deine Antworten, ein KI-Modell spielt den Gast und bewertet dich. Richte den Anbieter im Tab „LLM-Modus“ ein.'],
+  quizStep:[(n,m)=>`Battuta ${n}/${m}`,(n,m)=>`Line ${n}/${m}`,(n,m)=>`Réplique ${n}/${m}`,(n,m)=>`Frase ${n}/${m}`,(n,m)=>`Satz ${n}/${m}`],
+  chooseReply:['Scegli la risposta migliore (tasti 1–3):','Choose the best reply (keys 1–3):','Choisissez la meilleure réponse (touches 1–3) :','Elige la mejor respuesta (teclas 1–3):','Wähle die beste Antwort (Tasten 1–3):'],
+  fbOk:['✔ Ottima risposta!','✔ Great reply!','✔ Excellente réponse !','✔ ¡Respuesta excelente!','✔ Sehr gute Antwort!'],
+  fbCold:['✖ Corretta, ma poco cortese e poco utile per l’ospite.','✖ Correct, but not very polite or helpful to the guest.','✖ Correct, mais peu aimable et peu utile pour le client.','✖ Correcta, pero poco amable y poco útil para el huésped.','✖ Korrekt, aber wenig höflich und wenig hilfreich für den Gast.'],
+  fbErr:[x=>`✖ C’è un errore: ${x}`,x=>`✖ There’s a mistake: ${x}`,x=>`✖ Il y a une erreur : ${x}`,x=>`✖ Hay un error: ${x}`,x=>`✖ Da ist ein Fehler: ${x}`],
+  fbBest:[x=>`Meglio: «${x}»`,x=>`Better: “${x}”`,x=>`Mieux : « ${x} »`,x=>`Mejor: «${x}»`,x=>`Besser: „${x}“`],
+  nowIn:['👉 Ora assegna una camera libera.','👉 Now assign a free room.','👉 Attribuez maintenant une chambre libre.','👉 Ahora asigna una habitación libre.','👉 Vergib jetzt ein freies Zimmer.'],
+  nowOut:['👉 Ora completa il check-out.','👉 Now complete the check-out.','👉 Terminez maintenant le check-out.','👉 Ahora completa el check-out.','👉 Schließe jetzt den Check-out ab.'],
+  qc6:['Accoglienza perfetta: cordiale, chiara e professionale!','Perfect welcome: friendly, clear and professional!','Accueil parfait : chaleureux, clair et professionnel !','¡Recepción perfecta: amable, clara y profesional!','Perfekter Empfang: freundlich, klar und professionell!'],
+  qc5:['Ottima accoglienza, con solo una piccola imprecisione.','Great welcome, with just one small slip.','Très bon accueil, avec juste une petite maladresse.','Muy buena recepción, con solo un pequeño fallo.','Sehr guter Empfang, nur mit einem kleinen Patzer.'],
+  qc4:['Servizio corretto, ma si può fare meglio.','Decent service, but there is room for improvement.','Service correct, mais il y a mieux à faire.','Servicio correcto, pero se puede mejorar.','Ordentlicher Service, aber da geht noch mehr.'],
+  qc3:['Esperienza deludente alla reception.','A disappointing experience at reception.','Une expérience décevante à l’accueil.','Una experiencia decepcionante en recepción.','Ein enttäuschendes Erlebnis an der Rezeption.'],
+  tipLang:['Rileggi le correzioni: attenzione a grammatica, accordi e preposizioni.','Review the corrections: watch grammar, agreement and prepositions.','Relisez les corrections : attention à la grammaire, aux accords et aux prépositions.','Repasa las correcciones: cuidado con la gramática, la concordancia y las preposiciones.','Lies die Korrekturen noch einmal: Achte auf Grammatik, Endungen und Präpositionen.'],
+  tipKind:['Usa formule di cortesia e offri sempre una soluzione all’ospite.','Use polite phrases and always offer the guest a solution.','Utilisez des formules de politesse et proposez toujours une solution au client.','Usa fórmulas de cortesía y ofrece siempre una solución al huésped.','Verwende Höflichkeitsformeln und biete dem Gast immer eine Lösung an.'],
+  tipCut:['Hai chiuso la conversazione prima della fine: rispondi a tutte le battute dell’ospite.','You ended the conversation early: answer all of the guest’s lines.','Vous avez terminé la conversation trop tôt : répondez à toutes les répliques du client.','Has terminado la conversación antes de tiempo: responde a todas las frases del huésped.','Du hast das Gespräch zu früh beendet: Antworte auf alle Sätze des Gastes.'],
+  quizLangs:['In modalità «Senza LLM» i dialoghi esistono in italiano, inglese, francese, spagnolo e tedesco: gli ospiti che parlano altre lingue usano l’inglese.','In “Without LLM” mode dialogues exist in Italian, English, French, Spanish and German: guests who speak other languages use English.','En mode « Sans LLM », les dialogues existent en italien, anglais, français, espagnol et allemand : les clients qui parlent d’autres langues utilisent l’anglais.','En el modo «Sin LLM» los diálogos están en italiano, inglés, francés, español y alemán: los huéspedes que hablan otros idiomas usan el inglés.','Im Modus „Ohne LLM“ gibt es die Dialoge auf Italienisch, Englisch, Französisch, Spanisch und Deutsch: Gäste mit anderen Sprachen sprechen Englisch.']
+});
+// lingua del dialogo scritto per questo ospite
+const quizLang = p => (p.speak === 'native' && QL.includes(p.lang)) ? p.lang : 'en';
+function quizWho(o) { return o.type === 'couple' ? o.s : o.type === 'pair' ? o.a : (o.full.split(' ').slice(1).join(' ') || o.full); }
+function quizFill(s, ctx) {
+  return s.replace(/\{([^{}|]*)\|([^{}]*)\}/g, (_, a, b) => ctx.pl ? b : a)
+          .replace(/\{(\w+)\}/g, (m, k) => ctx[k] != null ? ctx[k] : m);
+}
+function quizScript(p) {
+  let key;
+  if (p.kind === 'in') key = pick(['in1', 'in2']);
+  else if (p.kind === 'out') key = pick(['out1', 'out2']);
+  else { if (!QSITS.includes(p.sit)) p.sit = pick(QSITS); key = 's' + p.sit; }
+  const lang = quizLang(p), li = LANGS.findIndex(l => l[0] === lang);
+  const ctx = { pl: p.size === 2, who: quizWho(p.name), n: L.nights[li](p.nights), bill: p.nights * S.price, pr: S.price,
+    room: p.room ? L.room[li](p.room[1]) : '', co: hh(S.coTo) };
+  const raw = QD[lang][key], f = s => quizFill(s, ctx);
+  const steps = raw.slice(0, -1).map(([g, ok, cold, err, fix]) => {
+    const opts = [{ q:'ok', text:f(ok) }, { q:'cold', text:f(cold) }, { q:'err', text:f(err), fix:f(fix) }];
+    for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+    return { g:f(g), opts };
+  });
+  return { key, lang, steps, end:f(raw[raw.length - 1]) };
+}
+function quizPick(i) {
+  const p = byId(chatPid); if (!p || !p.conv || !p.conv.quiz) return;
+  const c = p.conv, sc = c.script;
+  if (c.busy || c.ended || c.rated || c.step >= sc.steps.length) return;
+  const st = sc.steps[c.step], o = st.opts[i]; if (!o) return;
+  c.msgs.push({ who:'r', text:o.text }); c.ex++; c.picks.push(o.q);
+  if (o.q === 'ok') c.msgs.push({ who:'fb', cls:'ok', text:t('fbOk') });
+  else c.msgs.push({ who:'fb', cls:'bad', text:(o.q === 'cold' ? t('fbCold') : t('fbErr', o.fix)) + '\n' + t('fbBest', st.opts.find(x => x.q === 'ok').text) });
+  c.step++; c.busy = true; renderChat(); markDirty();
+  const react = o.q === 'ok' ? '' : pick(QR[sc.lang][o.q]) + ' ';
+  setTimeout(() => {
+    c.busy = false;
+    if (c.rated || c.cut) { if (!c.rated) evaluate(p); renderChat(); return; }
+    if (c.step < sc.steps.length) c.msgs.push({ who:'g', text:react + sc.steps[c.step].g });
+    else {
+      c.msgs.push({ who:'g', text:react + sc.end }); c.ended = true;
+      if (p.status === 'queue' && p.kind !== 'ask') c.msgs.push({ who:'sys', text:t(p.kind === 'in' ? 'nowIn' : 'nowOut') });
+      evaluate(p);
+    }
+    renderChat(); markDirty();
+  }, 650);
+}
+function quizEvaluate(p) {
+  const c = p.conv, n = c.script.steps.length;
+  const errs = c.picks.filter(q => q === 'err').length, colds = c.picks.filter(q => q === 'cold').length, miss = n - c.picks.length;
+  const l = Math.max(1, 3 - errs), k = Math.max(1, 3 - colds - miss), s = l + k;
+  const comment = t(s >= 6 ? 'qc6' : s === 5 ? 'qc5' : s === 4 ? 'qc4' : 'qc3');
+  const tip = miss > 0 ? t('tipCut') : errs && errs >= colds ? t('tipLang') : colds ? t('tipKind') : '';
+  applyRating(p, l, k, comment, tip);
+}
 
 /* =========================================================
    FORNITORI LLM
@@ -1170,6 +2040,10 @@ function openingText(p) {
   return '(You come to the reception desk.) Start the conversation with your first message.';
 }
 function ensureConv(p) {
+  if (!p.conv && S.mode === 'quiz') {
+    const script = quizScript(p);
+    p.conv = { quiz:true, script, step:0, picks:[], msgs:[{ who:'g', text:script.steps[0].g }], api:[], ex:0, ended:false, rated:false, busy:false, err:null };
+  }
   if (!p.conv) p.conv = { msgs:[], api:[{ role:'user', content:openingText(p) }], ex:0, ended:false, rated:false, busy:false, err:null };
   return p.conv;
 }
@@ -1204,6 +2078,7 @@ function llmAction(p, noteEN, noteUI) {
   const c = ensureConv(p);
   c.msgs.push({ who:'sys', text:noteUI });
   if (!c.msgs.some(m => m.who === 'r')) { evaluate(p); return; }
+  if (c.quiz) { if (!c.rated) { c.ended = true; c.cut = true; if (!c.busy) evaluate(p); } renderChat(); return; }
   if (!c.ended && !c.rated) { pushUser(c, `[Action: ${noteEN}] (Thank the receptionist briefly, say goodbye and set "end": true.)`); guestSpeak(p); }
   else if (!c.rated) evaluate(p);
   renderChat();
@@ -1217,6 +2092,7 @@ async function evaluate(p) {
   const c = p.conv; if (!c || c.rated || c.evaluating || c.busy) return;
   c.ended = true;
   if (!c.msgs.some(m => m.who === 'r')) { applyRating(p, 1, 1, t('noTalk'), ''); return; }
+  if (c.quiz) { quizEvaluate(p); return; }
   c.evaluating = true; c.err = null; renderChat();
   const exp = expectedLang(p), uiLang = ['Italian','English','French','Spanish','German'][LI];
   const transcript = c.msgs.map(m => m.who === 'g' ? `GUEST: ${m.text}` : m.who === 'r' ? `RECEPTIONIST: ${m.text}` : `[${m.text}]`).join('\n');
@@ -1252,9 +2128,10 @@ function finishAsk(p) {
   markDirty();
 }
 function openChat(id) {
-  const p = byId(id); if (!p || !S.llm.on) return;
+  const p = byId(id); if (!p || S.mode === 'mgmt') return;
   chatPid = id; const c = ensureConv(p);
   renderChat();
+  if (c.quiz) return;
   if (!c.msgs.length && !c.busy && !c.rated) guestSpeak(p);
   setTimeout(() => $('chIn') && $('chIn').focus(), 50);
 }
@@ -1268,8 +2145,9 @@ function renderChat() {
   const c = p.conv, nm = nameStr(p.name);
   const kindLbl = p.kind === 'in' ? t('ci') : p.kind === 'out' ? t('co') : t('ask');
   $('chName').textContent = nm;
-  $('chSub').textContent = `${kindLbl} · ${speakLabel(p)} · ${t('exchanges', c.ex, MAXEX)}`;
-  let h = c.msgs.map(m => `<div class="bub ${m.who}">${esc(m.text)}</div>`).join('');
+  const nSteps = c.quiz ? c.script.steps.length : 0;
+  $('chSub').textContent = `${kindLbl} · ${speakLabel(p)} · ${c.quiz ? t('quizStep', Math.min(c.step + 1, nSteps), nSteps) : t('exchanges', c.ex, MAXEX)}`;
+  let h = c.msgs.map(m => `<div class="bub ${m.who}${m.cls ? ' ' + m.cls : ''}">${esc(m.text)}</div>`).join('');
   if (c.busy) h += `<div class="typing">${t('typing', esc(nm))}</div>`;
   if (c.evaluating) h += `<div class="typing">${t('evaluating')}</div>`;
   if (c.err) h += `<div class="chErr">${esc(c.err)} <button data-ch="retry">${t('retry')}</button></div>`;
@@ -1282,11 +2160,14 @@ function renderChat() {
   $('chMsgs').innerHTML = h; $('chMsgs').scrollTop = 1e6;
   // azioni
   const closed = isClosed(game.t); let a = '';
+  if (c.quiz && !c.busy && !c.ended && !c.rated && c.step < nSteps)
+    a += `<div class="optH">${t('chooseReply')}</div>` + c.script.steps[c.step].opts.map((o, i) => `<button class="opt" data-ch="opt" data-o="${i}"><b>${i + 1}</b>${esc(o.text)}</button>`).join('');
   if (p.status === 'queue' && p.kind === 'in') a += RK.map(k => { const ok = rooms[k].status === 'free'; return `<button class="room" data-ch="in" data-r="${k}" ${ok && !closed ? '' : 'disabled'}>${RS(k)}${ok ? '' : rooms[k].status === 'occupied' ? ' · ' + t('occ') : ' · 🧹'}</button>`; }).join('');
   if (p.status === 'queue' && p.kind === 'out') a += `<button class="primary" data-ch="out" ${closed ? 'disabled' : ''}>${t('coBtn', p.nights * S.price)}</button>`;
   if (!c.rated && !c.evaluating && c.msgs.some(m => m.who === 'r')) a += `<button class="ghost" data-ch="end">${t('endConv')}</button>`;
   if (c.rated) a += `<button data-ch="close">${t('close')}</button>`;
   $('chActs').innerHTML = a;
+  $('chForm').style.display = c.quiz ? 'none' : '';
   const dis = c.busy || c.ended || c.rated || c.ex >= MAXEX;
   $('chIn').disabled = dis; $('chSend').disabled = dis;
   $('chIn').placeholder = t('typeHere'); $('chSend').textContent = t('send');
@@ -1304,6 +2185,7 @@ function saveSettings() {
     S = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), o);
     S.llm = Object.assign(JSON.parse(JSON.stringify(DEFAULTS.llm)), o.llm || {});
     S.langs = Object.assign(JSON.parse(JSON.stringify(DEFAULTS.langs)), o.langs || {});
+    if (!['mgmt', 'quiz', 'llm'].includes(o.mode)) S.mode = o.llm && o.llm.on ? 'llm' : 'quiz';
   } catch (e) {}
 })();
 const PATIENCE = 150;   // minuti di gioco che un ospite è disposto ad aspettare al bancone
@@ -1373,7 +2255,7 @@ function generateDay(d) {
     parties.push(p);
   }
   addLog('L_day', [d, n, depToday]);
-  // richieste durante i giorni intermedi del soggiorno (solo in modalità LLM)
+  // richieste durante i giorni intermedi del soggiorno (solo nelle modalità con dialoghi)
   parties.forEach(p => {
     if (p.status === 'inRoom' && p.arrDay < d && dayOf(p.departAt) > d && Math.random() * 100 < S.askPct) {
       p.askAt = nextOpen(randInWin(dayStart(d), 9, 19)); p.sit = rint(0, SITS.length - 1);
@@ -1430,7 +2312,7 @@ function doCheckIn(id, k) {
   const p = byId(id); if (!p || p.status !== 'queue' || isClosed(game.t) || rooms[k].status !== 'free') return;
   rooms[k].status = 'occupied'; rooms[k].guest = p.id; p.room = k;
   p.departAt = nextOpen(Math.max(game.t + 180, randInWin(dayStart(p.arrDay + p.nights), S.coFrom, S.coTo)));
-  if (S.llm.on) llmAction(p, `the receptionist completed your check-in and handed you the key of ${roomEN(k)}`, t('noteCheckin', RS(k))); else waitRep(p);
+  if (S.mode !== 'mgmt') llmAction(p, `the receptionist completed your check-in and handed you the key of ${roomEN(k)}`, t('noteCheckin', RS(k))); else waitRep(p);
   removeFromQueue(p); p.tag.visible = false; p.status = 'toRoom';
   walkTo(p.w, [...DESK_HALL, ...roomChain(k).slice().reverse()], () => {
     p.status = 'inRoom'; p.suit.visible = false; p.w.heading = RM[k].face; syncRoom(k); markDirty();
@@ -1444,7 +2326,7 @@ function doCheckOut(id, auto = false) {
   const r = rooms[p.room]; r.status = 'dirty'; r.guest = null; r.dirtySince = game.t;
   if (auto) { addReview(2); addLog('L_auto', [p.name, bill], 'bad'); }
   else {
-    if (S.llm.on) llmAction(p, `the receptionist completed your check-out; you paid ${bill} €`, t('noteCheckout', bill)); else waitRep(p);
+    if (S.mode !== 'mgmt') llmAction(p, `the receptionist completed your check-out; you paid ${bill} €`, t('noteCheckout', bill)); else waitRep(p);
     addLog('L_out', [p.name, bill, { room:p.room }], 'good');
   }
   syncRoom(p.room); leave(p);
@@ -1469,7 +2351,7 @@ function tick(dt) {
       joinQueue(p, 'in'); addLog('L_arriving', [p.name, { people:p.size }]); markDirty();
     } else if (p.status === 'inRoom' && p.askAt && game.t >= p.askAt && dayOf(p.departAt) > dayOf(game.t)) {
       p.askAt = 0;
-      if (!S.llm.on || closed) return;
+      if (S.mode === 'mgmt' || closed) return;
       joinQueue(p, 'ask'); markDirty();
     } else if (p.status === 'inRoom' && game.t >= p.departAt) {
       if (closed) { p.departAt = nextOpen(game.t); return; }
@@ -1565,12 +2447,11 @@ function renderDesk() {
       : p.kind === 'out' ? `${RS(p.room)} · ${NIGHTS(p.nights)} · ${t('toPay', bill)}` : `${RS(p.room)} · ${t('people', p.size)}`)
       + `</div><div class="gLang">${speakLabel(p)}${convActive(p) ? ' · ' + t('inChat') : ''}`;
     if (walking) return `<div class="g ${p.kind} walking">${head}<div class="gMeta">${meta}</div><div class="gMeta">${t('walking')}</div></div>`;
-    let acts = S.llm.on && !(p.conv && p.conv.rated) ? `<button class="talk" data-act="talk" data-p="${p.id}">${t('talk')}</button>` : '';
+    let acts = S.mode !== 'mgmt' && !(p.conv && p.conv.rated) ? `<button class="talk" data-act="talk" data-p="${p.id}">${t('talk')}</button>` : '';
     if (p.kind === 'ask') {
       // le richieste si gestiscono solo parlando
     } else if (p.kind === 'in') {
-      acts +=
-      acts = RK.map(k => {
+      acts += RK.map(k => {
         const st = rooms[k].status, ok = st === 'free';
         return `<button class="room" data-act="in" data-p="${p.id}" data-r="${k}" ${ok && !closed ? '' : 'disabled'} title="${t('st_'+st)}">${RS(k)}${ok ? '' : st === 'occupied' ? ' · ' + t('occ') : ' · 🧹'}</button>`;
       }).join('') + `<button class="ghost" data-act="refuse" data-p="${p.id}" ${closed ? 'disabled' : ''}>${t('refuse')}</button>`;
@@ -1631,6 +2512,7 @@ $('chActs').addEventListener('click', e => {
   const a = b.dataset.ch;
   if (a === 'in') doCheckIn(p.id, b.dataset.r);
   else if (a === 'out') doCheckOut(p.id);
+  else if (a === 'opt') quizPick(+b.dataset.o);
   else if (a === 'end') endConversation();
   else if (a === 'close') closeChat();
   renderChat(); markDirty();
@@ -1649,11 +2531,36 @@ function skipClosed() {
 let prevSpeed = 1;
 function setSpeed(s) { game.speed = s; document.querySelectorAll('#speed button').forEach(b => b.classList.toggle('on', +b.dataset.s === s)); }
 $('speed').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSpeed(+b.dataset.s); });
+addEventListener('keydown', e => {
+  if (!chatPid || e.target.closest('input,select,textarea') || !$('modal').classList.contains('hidden')) return;
+  const m = /^(?:Digit|Numpad)([1-3])$/.exec(e.code); if (!m) return;
+  const p = byId(chatPid); if (p && p.conv && p.conv.quiz) { e.preventDefault(); quizPick(+m[1] - 1); }
+});
 addEventListener('keydown', e => { if (e.code === 'Space' && !e.target.closest('input,select,textarea')) { e.preventDefault(); if (game.speed) { prevSpeed = game.speed; setSpeed(0); } else setSpeed(prevSpeed || 1); } });
 
 // impostazioni
 const hourSel = (id, v) => `<select id="${id}">${Array.from({ length:24 }, (_, h) => `<option value="${h}" ${h === v ? 'selected' : ''}>${hh(h)}</option>`).join('')}</select>`;
-let curTab = 'hours', formProv = null;
+let curTab = 'hours', formProv = null, formMode = null;
+function renderMode() {
+  formMode = formMode || S.mode;
+  $('modeBox').innerHTML = `<div class="sec">${t('mode')}</div>
+    <div class="modes">${['mgmt', 'quiz', 'llm'].map(m => `<button type="button" data-mode="${m}">${t('m_' + m)}</button>`).join('')}</div>
+    <div class="setNote" id="modeNote"></div>
+    <div id="dlgRows">
+      <label class="setRow"><div>${t('pauseChat')}</div><input type="checkbox" id="sPause" ${S.llm.pauseChat ? 'checked' : ''}></label>
+      <div class="setRow"><div>${t('askPct')}<small>${t('askPctS')}</small></div><div><input id="sAsk" type="number" min="0" max="100" step="5" value="${S.askPct}"> %</div></div>
+    </div>`;
+  $('modeBox').querySelector('.modes').onclick = e => { const b = e.target.closest('[data-mode]'); if (b) { formMode = b.dataset.mode; applyMode(); } };
+  applyMode();
+}
+function applyMode() {
+  document.querySelectorAll('#modeBox [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === formMode));
+  $('modeNote').textContent = t('m_' + formMode + 'S');
+  $('dlgRows').style.display = formMode === 'mgmt' ? 'none' : '';
+  const llmTab = document.querySelector('#tabs [data-tab="llm"]');
+  llmTab.style.display = formMode === 'llm' ? '' : 'none';
+  if (formMode !== 'llm' && curTab === 'llm') showTab('hours');
+}
 function renderSettings() {
   const ft = (a, b, x, y) => `<div>${t('from')} ${hourSel(a, x)} ${t('to')} ${hourSel(b, y)}</div>`;
   const provOpts = Object.keys(PROV).map(k => `<option value="${k}" ${k === S.llm.prov ? 'selected' : ''}>${PROV[k].n()}</option>`).join('');
@@ -1669,7 +2576,6 @@ function renderSettings() {
     <div class="setRow"><div>${t('s_pr')}</div><div><input id="sPr" type="number" min="20" max="500" step="5" value="${S.price}"> €</div></div>
   </div>
   <div class="pane" data-pane="llm">
-    <label class="setRow"><div><b>${t('llmOn')}</b><small>${t('llmOnS')}</small></div><input type="checkbox" id="sLlm" ${S.llm.on ? 'checked' : ''}></label>
     <div class="setRow"><div>${t('provider')}</div><select id="sProv" class="wide">${provOpts}</select></div>
     <div class="setRow" id="rowKey"><div>${t('apiKey')}</div><input id="sKey" class="wide" type="password" autocomplete="off" spellcheck="false"></div>
     <div class="setRow" id="rowModel"><div>${t('model')}</div><input id="sModel" class="wide" spellcheck="false"></div>
@@ -1677,16 +2583,15 @@ function renderSettings() {
     <label class="setRow" id="rowRem"><div>${t('remember')}</div><input type="checkbox" id="sRem" ${S.llm.remember ? 'checked' : ''}></label>
     <div class="setNote" id="provNote"></div>
     <div class="setRow"><div><button type="button" class="setBtn" id="sTest">${t('test')}</button><span id="testRes"></span></div></div>
-    <label class="setRow"><div>${t('pauseChat')}</div><input type="checkbox" id="sPause" ${S.llm.pauseChat ? 'checked' : ''}></label>
-    <div class="setRow"><div>${t('askPct')}<small>${t('askPctS')}</small></div><div><input id="sAsk" type="number" min="0" max="100" step="5" value="${S.askPct}"> %</div></div>
   </div>
   <div class="pane" data-pane="langs">
     <div class="lrow h"><span>${t('lang')}</span><span>${t('share')}</span><span>${t('avail')}</span></div>
     ${lrows}
     <div class="setNote"><b id="lTot"></b> · ${t('langsNote')}</div>
+    <div class="setNote">📝 ${t('quizLangs')}</div>
     <div class="setRow"><div>${t('altTitle')}</div><div>${t('enFluent')} <input id="sEn" type="number" min="0" max="100" step="5" value="${S.enPct}"> % · ${t('enBasic')} <b id="sEnB">${100 - S.enPct}</b> %</div></div>
   </div>`;
-  formProv = S.llm.prov; fillProv(); showTab(curTab); updLangTotal();
+  formProv = S.llm.prov; fillProv(); showTab(curTab); updLangTotal(); renderMode();
   $('sProv').onchange = () => { stashProv(); formProv = $('sProv').value; fillProv(); };
   $('sEn').oninput = () => $('sEnB').textContent = 100 - Math.max(0, Math.min(100, +$('sEn').value || 0));
   document.querySelectorAll('[data-lw]').forEach(i => i.oninput = updLangTotal);
@@ -1721,21 +2626,24 @@ function readSettings() {
   Object.assign(S, { closedFrom:+$('sCf').value, closedTo:+$('sCt').value, ciFrom:+$('sIf').value, ciTo:+$('sIt').value, coFrom:+$('sOf').value, coTo:+$('sOt').value,
         maidFrom:+$('sMf').value, maidTo:+$('sMt').value, cleanMin:Math.max(10, +$('sCl').value || 60), price:Math.max(20, +$('sPr').value || 80),
         askPct:Math.max(0, Math.min(100, +$('sAsk').value || 0)), enPct:Math.max(0, Math.min(100, +$('sEn').value || 0)) });
-  S.llm.on = $('sLlm').checked; S.llm.prov = formProv; S.llm.remember = $('sRem').checked; S.llm.pauseChat = $('sPause').checked;
+  S.mode = formMode || S.mode; S.llm.on = S.mode === 'llm'; S.llm.prov = formProv; S.llm.remember = $('sRem').checked; S.llm.pauseChat = $('sPause').checked;
   document.querySelectorAll('[data-lw]').forEach(i => S.langs[i.dataset.lw].w = Math.max(0, +i.value || 0));
   document.querySelectorAll('[data-la]').forEach(i => S.langs[i.dataset.la].av = i.dataset.la === 'en' ? true : i.checked);
   saveSettings();
 }
 let modalSpeed = 1, modalFirst = true;
 function openModal(first) {
-  modalFirst = first; modalSpeed = game.speed || 1; setSpeed(0); renderSettings();
+  modalFirst = first; modalSpeed = game.speed || 1; setSpeed(0); formMode = S.mode; renderSettings();
   $('mGo').textContent = t(first ? 'start' : 'save');
   $('mReset').style.display = first ? 'none' : '';
   $('modal').classList.remove('hidden');
 }
 $('gear').onclick = () => openModal(false);
+function dropOpenConvs() { parties.forEach(p => { if (p.conv && !p.conv.rated) p.conv = null; }); closeChat(); markDirty(); }
 $('mGo').onclick = () => {
+  const prevMode = S.mode;
   readSettings(); $('modal').classList.add('hidden');
+  if (S.mode !== prevMode) dropOpenConvs();
   if (game.running) addLog('L_hours');
   game.running = true; rescheduleAll();
   syncAll(); setSpeed(modalSpeed);
@@ -1939,7 +2847,7 @@ let uiTimer = 0, lastClosed = null, labelTimer = 0;
 function animate() {
   requestAnimationFrame(animate);
   const dtR = Math.min(clock.getDelta(), 0.1);
-  const chatHold = S.llm.on && S.llm.pauseChat && chatPid && byId(chatPid) && byId(chatPid).conv && !byId(chatPid).conv.rated;
+  const chatHold = S.mode !== 'mgmt' && S.llm.pauseChat && chatPid && byId(chatPid) && byId(chatPid).conv && !byId(chatPid).conv.rated;
   if (game.running && game.speed > 0 && !chatHold) {
     let dtG = dtR * game.speed;           // 1 secondo reale = 1 minuto di gioco (a 1×)
     while (dtG > 0) { const s = Math.min(dtG, 0.5); tick(s); dtG -= s; }
